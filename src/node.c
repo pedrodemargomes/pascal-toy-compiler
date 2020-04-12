@@ -91,9 +91,9 @@ int enqueueGenCodeVariable(struct GenCodeVariable *head, struct GenCodeVariable 
 	if(!head)
 		return -1;
 	
-	int offset = -4;
+	int offset = -8;
 	while(head->next) {
-		offset -= 4;
+		offset -= 8;
 		head = head->next;
 	}
 
@@ -121,7 +121,14 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	fprintf(f,"\tglobal _start\n");
 	fprintf(f,"\tsection .text\n");
 	fprintf(f,"_start:\n");
+	fprintf(f,"\tpush rbp\n");
+	fprintf(f,"\tmov rbp, rsp\n");
 	node->pgrmBlock->genCode(node->pgrmBlock);
+	fprintf(f,"\tmov rsp, rbp\n");
+	fprintf(f,"\tpop rbp\n");
+	fprintf(f,"\tmov rax, 60\n");
+	fprintf(f,"\txor rdi, rdi\n");
+	fprintf(f,"\tsyscall\n");
 }
 
 void genCodeNodeBlock(struct NodeBlock *node) {
@@ -132,14 +139,17 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 		genCodeVarHead->offset = 0;
 		genCodeVarHead->next = NULL;
 		
+		fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
+		fprintf(f,"\tpush rax\n");
+
 		var = var->next;
 		struct GenCodeVariable *genCodeVar;
 		while(var) {
 			genCodeVar = malloc(sizeof(struct GenCodeVariable));
 			genCodeVar->name = var->name;
 			enqueueGenCodeVariable(genCodeVarHead, genCodeVar);
-			fprintf(f,"\tmov eax, %d\n", INIT_VAR_VALUE);
-			fprintf(f,"\tpush eax\n");
+			fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
+			fprintf(f,"\tpush rax\n");
 			var = var->next;
 		}
 	}
@@ -150,11 +160,18 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 			stmt = stmt->next;
 		}
 	}
+	// Pop all variables used in block
+	struct GenCodeVariable *genCodeVar = genCodeVarHead;
+	while(genCodeVar) {
+		fprintf(f,"\tpop rax\n");
+		genCodeVar = genCodeVar->next;
+	}
 }
 
 void genCodeAsign(char *name, int value) {
 	int offset = getOffsetOfVariable(genCodeVarHead, name);		
-	fprintf(f,"\tmov [ebp+%d], %d\n", offset, value);
+	fprintf(f,"\tmov rax, %d\n", value);
+	fprintf(f,"\tmov [rbp%+d], rax\n", offset);
 }
 
 void genCodeNodeStmt(struct NodeStatemet *node) {
