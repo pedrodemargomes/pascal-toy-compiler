@@ -117,18 +117,30 @@ int getOffsetOfVariable(struct GenCodeVariable *head, char *name) {
 }
 
 void genCodeNodeRoot(struct NodeRoot *node) {
-	f = fopen(binName, "a");
-	fprintf(f,"\tglobal _start\n");
+	f = fopen(binName, "w");
+	fprintf(f,"\tglobal main\n");
+	fprintf(f,"\textern  printf\n");
+	
 	fprintf(f,"\tsection .text\n");
-	fprintf(f,"_start:\n");
+	fprintf(f,"main:\n");
+	
+	// CREATE NEW STACK FRAME
 	fprintf(f,"\tpush rbp\n");
 	fprintf(f,"\tmov rbp, rsp\n");
+	
 	node->pgrmBlock->genCode(node->pgrmBlock);
+	
+	// RESTORE STACK
 	fprintf(f,"\tmov rsp, rbp\n");
 	fprintf(f,"\tpop rbp\n");
-	fprintf(f,"\tmov rax, 60\n");
-	fprintf(f,"\txor rdi, rdi\n");
-	fprintf(f,"\tsyscall\n");
+
+	// EXECUTE SYSCALL
+	// fprintf(f,"\tmov rax, 60\n");
+	// fprintf(f,"\txor rdi, rdi\n");
+	// fprintf(f,"\tsyscall\n");
+
+	fprintf(f,"\tsection .rodata\n");
+	fprintf(f,"formatNum:\tdb '%%ld', 10, 0\n");	
 }
 
 void genCodeNodeBlock(struct NodeBlock *node) {
@@ -174,14 +186,45 @@ void genCodeAsign(char *name, int value) {
 	fprintf(f,"\tmov [rbp%+d], rax\n", offset);
 }
 
+void genCodeWriteVar(char *name) {
+	int offset = getOffsetOfVariable(genCodeVarHead, name);		
+	fprintf(f,"\tpush rax\n");
+	fprintf(f,"\tpush rcx\n");
+	fprintf(f,"\tpush rdx\n");
+	
+	fprintf(f,"\tmov rdi, formatNum\n");
+	fprintf(f,"\tmov rsi, [rbp%+d]\n", offset);
+	fprintf(f,"\txor rax, rax\n");
+	fprintf(f,"\tcall printf wrt ..plt\n");
+
+	fprintf(f,"\tpop rdx\n");
+	fprintf(f,"\tpop rcx\n");
+	fprintf(f,"\tpop rax\n");
+}
+
+void genCodeWriteNum(int value) {
+	fprintf(f,"\tpush rax\n");
+	fprintf(f,"\tpush rcx\n");
+	fprintf(f,"\tpush rdx\n");
+	
+	fprintf(f,"\tmov rdi, formatNum\n");
+	fprintf(f,"\tmov rsi, %d\n", value);
+	fprintf(f,"\txor rax, rax\n");
+	fprintf(f,"\tcall printf wrt ..plt\n");
+
+	fprintf(f,"\tpop rdx\n");
+	fprintf(f,"\tpop rcx\n");
+	fprintf(f,"\tpop rax\n");
+}
+
 void genCodeNodeStmt(struct NodeStatemet *node) {
 	if(node->asign) {
 		genCodeAsign(node->asign->var->name, node->asign->value);
 	} else if(node->write) {
-		/*if(node->write->var)
-			printf("write(%s)\n", node->write->var->name);
+		if(node->write->var)
+			genCodeWriteVar(node->write->var->name);
 		else
-			printf("write(%d)\n", node->write->number);*/
+			genCodeWriteNum(node->write->number);
 	}
 }
 

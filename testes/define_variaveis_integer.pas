@@ -7,6 +7,7 @@ Begin
 	d := 4;
 	e := 5;
 
-	write(a);
-	write(b);
+	write(d);
+	write(e);
+	write(101);
 End.
