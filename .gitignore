@@ -1,0 +1,9 @@
+src/compilador.output
+src/compilador.tab.c
+src/compilador.tab.h
+src/compilador
+src/lex.yy.c
+testes/a.out
+testes/*.o
+testes/*.pas.s
+
