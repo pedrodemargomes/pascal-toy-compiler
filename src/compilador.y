@@ -19,6 +19,9 @@ char *binName;
 	struct Variable *variable;
 	struct NodeStatemet *stmt; 
 	struct NodeExpression *expr;
+	struct NodeSimpleExpression *simpleExpr;
+	struct NodeTermo *termo;
+	struct NodeTerminal *terminal;
 	struct NodeAsignVariable *asign;
 	struct NodeWrite *write;
 }
@@ -36,6 +39,9 @@ char *binName;
 %type <declIntVar> declara_var parte_declara_vars
 %type <variable> lista_id_var
 %type <expr> expressao
+%type <simpleExpr> expressaoSimples
+%type <termo> termo
+%type <terminal> terminal
 %type <asign> atribuicaoInteiro
 %type <stmt> comando_composto comandos comando
 %type <write> imprime
@@ -130,27 +136,96 @@ expressao:
 	expressao T_IGUAL expressaoSimples |
 	expressao T_DIFERENTE expressaoSimples |
 	expressaoSimples
+	{
+		struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+		expr->simpleExpr = $1;
+		$$ = expr;
+	}
 ;
 
 expressaoSimples: 
-	expressaoSimples T_SUM termo |
-	expressaoSimples T_MINUS termo |
+	expressaoSimples T_SUM termo
+	{
+		struct NodeSimpleExpression *simpleExpr = malloc(sizeof(struct NodeSimpleExpression));
+		INIT_SIMPLE_EXPRESSION(simpleExpr);
+		simpleExpr->simpleExpr = $1;
+		simpleExpr->operation = SUM;
+		simpleExpr->termo = $3;
+		$$ = simpleExpr;
+	} |
+	expressaoSimples T_MINUS termo
+	{
+		struct NodeSimpleExpression *simpleExpr = malloc(sizeof(struct NodeSimpleExpression));
+		INIT_SIMPLE_EXPRESSION(simpleExpr);
+		simpleExpr->simpleExpr = $1;
+		simpleExpr->operation = MINUS;
+		simpleExpr->termo = $3;
+		$$ = simpleExpr;
+	} |
 	expressaoSimples T_OR termo |
 	termo
+	{
+		struct NodeSimpleExpression *simpleExpr = malloc(sizeof(struct NodeSimpleExpression));	
+		INIT_SIMPLE_EXPRESSION(simpleExpr);
+		simpleExpr->termo = $1;
+		$$ = simpleExpr;
+	}
 ;
 
 termo: 
-	termo T_MULT terminal |
-	termo T_DIV terminal |
+	termo T_MULT terminal
+	{
+		struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));
+		INIT_TERMO(termo);
+		termo->termo = $1;
+		termo->operation = MULT;
+		termo->terminal = $3;
+		$$ = termo;
+	} |
+	termo T_DIV terminal
+	{
+		struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));
+		INIT_TERMO(termo);
+		termo->termo = $1;
+		termo->operation = DIV;
+		termo->terminal = $3;
+		$$ = termo;
+	} |
 	termo T_AND terminal |
 	terminal
+	{
+		struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));	
+		INIT_TERMO(termo);
+		termo->terminal = $1;
+		$$ = termo;
+	}
 ;
 
 terminal:   
-	ident |
-	ABRE_PARENTESES expressao FECHA_PARENTESES |
+	ident
+	{
+		struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
+		INIT_TERMINAL(terminal);
+		terminal->variable = $1;
+		$$ = terminal;
+
+	} |
+	ABRE_PARENTESES expressao FECHA_PARENTESES
+	{
+		struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
+		INIT_TERMINAL(terminal);
+		terminal->expr = $2;
+		$$ = terminal;
+	} |
 	T_NOT terminal |
-	T_NUMERO
+	numero
+	{
+		struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
+		INIT_TERMINAL(terminal);
+		terminal->number = $1;
+		$$ = terminal;
+	}
 ;
 
 comando_repetitivo: 
@@ -168,7 +243,7 @@ cond_else:
                                    
 
 atribuicaoInteiro:
-	ident ATRIBUICAO numero
+	ident ATRIBUICAO expressao
 	{
 		struct NodeAsignVariable *as = malloc(sizeof(struct NodeAsignVariable));	
 		as->var = malloc(sizeof(struct Variable));

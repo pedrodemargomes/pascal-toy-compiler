@@ -21,8 +21,13 @@ int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node) {
 int enqueueVariable(struct Variable *head, struct Variable *node) {
 	if(!head)
 		return -1;		
-	while(head->next)
+	while(head->next) {
+		if(strcmp(head->name, node->name) == 0) {
+			printf("ERROR: Variable name (%s) already used\n", node->name);
+			exit(-1);
+		}	
 		head = head->next;
+	}
 
 	node->next = NULL;
 	head->next = node;
@@ -63,13 +68,64 @@ void printNodeBlock(struct NodeBlock *node) {
 
 void printNodeStmt(struct NodeStatemet *node) {
 	if(node->asign) {
-		printf("%s = %d\n", node->asign->var->name, node->asign->value);
+		printf("%s = ", node->asign->var->name);
+		printNodeExpression(node->asign->value);
+		printf("\n");
 	} else if(node->write) {
 		if(node->write->var)
 			printf("write(%s)\n", node->write->var->name);
 		else
 			printf("write(%d)\n", node->write->number);
 	}
+}
+
+void printOperation(enum Operation op) {
+	if(op == SUM)
+		printf("+");
+	else if(op == MINUS)
+		printf("-");
+	else if(op == MULT)
+		printf("*");
+	else if(op == DIV)
+		printf("/");
+}
+
+void printNodeTerminal(struct NodeTerminal *node) {
+	if(node == NULL)
+		return;
+	if(node->expr != NULL) {
+		printf("(");
+		printNodeExpression(node->expr);
+		printf(")");
+	} else if(node->variable != NULL) {
+		printf("%s", node->variable);
+	} else
+		printf("%d", node->number);
+}
+
+void printNodeTermo(struct NodeTermo *node) {
+	if(node == NULL)
+		return;
+	printf("(");
+	printNodeTermo(node->termo);
+	printOperation(node->operation);
+	printNodeTerminal(node->terminal);
+	printf(")");
+
+}
+
+void printNodeSimpleExpression(struct NodeSimpleExpression *node) {
+	if(node == NULL)
+		return;
+	printf("(");
+	printNodeSimpleExpression(node->simpleExpr);
+	printOperation(node->operation);
+	printNodeTermo(node->termo);
+	printf(")");
+}
+
+void printNodeExpression(struct NodeExpression *node) {
+	printNodeSimpleExpression(node->simpleExpr);
 }
 
 // +++++++++++ CODE GENERATION ++++++++++
@@ -86,7 +142,6 @@ struct GenCodeVariable {
 
 struct GenCodeVariable *genCodeVarHead = NULL;
 
-// TODO: CHECK IF VAR NAME HAS ALREADY BEEN USED
 int enqueueGenCodeVariable(struct GenCodeVariable *head, struct GenCodeVariable *node) {
 	if(!head)
 		return -1;
@@ -104,16 +159,17 @@ int enqueueGenCodeVariable(struct GenCodeVariable *head, struct GenCodeVariable 
 	return 0;
 }
 
-// TODO: PRINT ERROR AND EXIT WHEN VAR IS NOT FOUND
 int getOffsetOfVariable(struct GenCodeVariable *head, char *name) {
 	if(!head)
-		return 1;
+		return -1;
 	while(head) {
 		if(strcmp(head->name, name) == 0)
 			return head->offset;
 		head = head->next;
 	}
-	return 1;
+
+	printf("ERROR: Variable (%s) node found\n", name);
+	exit(-1);
 }
 
 void genCodeNodeRoot(struct NodeRoot *node) {
@@ -180,9 +236,10 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 	}
 }
 
-void genCodeAsign(char *name, int value) {
-	int offset = getOffsetOfVariable(genCodeVarHead, name);		
-	fprintf(f,"\tmov rax, %d\n", value);
+void genCodeAsign(char *name, struct NodeExpression *value) {
+	// Generate expression asm and save result in rax register
+	genCodeNodeExpression(value);
+	int offset = getOffsetOfVariable(genCodeVarHead, name);
 	fprintf(f,"\tmov [rbp%+d], rax\n", offset);
 }
 
@@ -226,6 +283,50 @@ void genCodeNodeStmt(struct NodeStatemet *node) {
 		else
 			genCodeWriteNum(node->write->number);
 	}
+}
+
+void genCodeNodeTerminal(struct NodeTerminal *node) {
+	if(node->expr != NULL) {
+		genCodeNodeExpression(node->expr);
+	} else if(node->variable != NULL) {
+		int offset = getOffsetOfVariable(genCodeVarHead, node->variable);
+		fprintf(f,"\tmov rax, [rbp%+d]\n", offset);
+	} else
+		fprintf(f,"\tmov rax, %d\n", node->number);
+}
+
+void genCodeNodeTermo(struct NodeTermo *node) {
+	if(node->termo) {
+		genCodeNodeTermo(node->termo);
+		fprintf(f,"\tpush rax\n");
+		genCodeNodeTerminal(node->terminal);
+		fprintf(f,"\tpop rcx\n");
+		if(node->operation == MULT)
+			fprintf(f,"\tmul rcx\n");
+		else
+			fprintf(f,"\tnop\n");
+	} else
+		genCodeNodeTerminal(node->terminal);
+}
+
+void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node) {
+	if(node->simpleExpr) {
+		genCodeNodeSimpleExpression(node->simpleExpr);
+		fprintf(f,"\tpush rax\n");
+		genCodeNodeTermo(node->termo);
+		fprintf(f,"\tpop rcx\n");
+		if(node->operation == SUM)
+			fprintf(f,"\tadd rax, rcx\n");
+		else if(node->operation == MINUS) {
+			fprintf(f,"\tsub rcx, rax\n");
+			fprintf(f,"\tmov rax, rcx\n");
+		}
+	} else
+		genCodeNodeTermo(node->termo);
+}
+
+void genCodeNodeExpression(struct NodeExpression *node) {
+	genCodeNodeSimpleExpression(node->simpleExpr);
 }
 
 
