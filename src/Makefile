@@ -12,7 +12,7 @@ compilador.tab.c: compilador.y node.h
 	bison compilador.y -d -v -t 
 
 clean:
-	rm -f compilador.tab.* *.o lex.yy.c
+	rm -f compilador.tab.* *.o lex.yy.c compilador.output
 
 purge: clean
 	rm compilador
