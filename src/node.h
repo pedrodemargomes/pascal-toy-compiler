@@ -113,8 +113,7 @@ struct NodeIf {
 };
 
 struct NodeWrite {
-	struct Variable *var;
-	int number;
+	struct NodeExpression *expr;
 };
 
 int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node);

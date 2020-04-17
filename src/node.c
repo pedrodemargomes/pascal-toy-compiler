@@ -72,10 +72,9 @@ void printNodeStmt(struct NodeStatemet *node) {
 		printNodeExpression(node->asign->value);
 		printf("\n");
 	} else if(node->write) {
-		if(node->write->var)
-			printf("write(%s)\n", node->write->var->name);
-		else
-			printf("write(%d)\n", node->write->number);
+		printf("write( ");
+		printNodeExpression(node->write->expr);
+		printf(" )\n");
 	}
 }
 
@@ -243,29 +242,15 @@ void genCodeAsign(char *name, struct NodeExpression *value) {
 	fprintf(f,"\tmov [rbp%+d], rax\n", offset);
 }
 
-void genCodeWriteVar(char *name) {
-	int offset = getOffsetOfVariable(genCodeVarHead, name);		
+void genCodeWrite(struct NodeWrite *node) {
 	fprintf(f,"\tpush rax\n");
 	fprintf(f,"\tpush rcx\n");
 	fprintf(f,"\tpush rdx\n");
-	
-	fprintf(f,"\tmov rdi, formatNum\n");
-	fprintf(f,"\tmov rsi, [rbp%+d]\n", offset);
-	fprintf(f,"\txor rax, rax\n");
-	fprintf(f,"\tcall printf wrt ..plt\n");
 
-	fprintf(f,"\tpop rdx\n");
-	fprintf(f,"\tpop rcx\n");
-	fprintf(f,"\tpop rax\n");
-}
-
-void genCodeWriteNum(int value) {
-	fprintf(f,"\tpush rax\n");
-	fprintf(f,"\tpush rcx\n");
-	fprintf(f,"\tpush rdx\n");
-	
+	genCodeNodeExpression(node->expr);
+		
 	fprintf(f,"\tmov rdi, formatNum\n");
-	fprintf(f,"\tmov rsi, %d\n", value);
+	fprintf(f,"\tmov rsi, rax\n");
 	fprintf(f,"\txor rax, rax\n");
 	fprintf(f,"\tcall printf wrt ..plt\n");
 
@@ -275,14 +260,10 @@ void genCodeWriteNum(int value) {
 }
 
 void genCodeNodeStmt(struct NodeStatemet *node) {
-	if(node->asign) {
+	if(node->asign)
 		genCodeAsign(node->asign->var->name, node->asign->value);
-	} else if(node->write) {
-		if(node->write->var)
-			genCodeWriteVar(node->write->var->name);
-		else
-			genCodeWriteNum(node->write->number);
-	}
+	else if(node->write)
+		genCodeWrite(node->write);
 }
 
 void genCodeNodeTerminal(struct NodeTerminal *node) {

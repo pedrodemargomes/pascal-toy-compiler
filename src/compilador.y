@@ -254,15 +254,10 @@ atribuicaoInteiro:
 ;
 
 imprime: 
-	T_WRITE ABRE_PARENTESES ident FECHA_PARENTESES {
+	T_WRITE ABRE_PARENTESES expressao FECHA_PARENTESES
+	{
 		struct NodeWrite *write = malloc(sizeof(struct NodeWrite)); 
-		write->var = malloc(sizeof(struct Variable));	
-		write->var->name = $3;
-		$$ = write;
-	} |
-	T_WRITE ABRE_PARENTESES numero FECHA_PARENTESES {
-		struct NodeWrite *write = malloc(sizeof(struct NodeWrite)); 
-		write->number = $3;
+		write->expr = $3;
 		$$ = write;
 	}
 ;
@@ -299,13 +294,15 @@ comandos:
 comando: 
 	comando_repetitivo |
 	comando_condicional |
-	atribuicaoInteiro {
+	atribuicaoInteiro
+	{
 		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
 		INIT_NODE_STMT(stmt);
 		stmt->asign = $1;
 		$$ = stmt;
 	} |
-	imprime {
+	imprime
+	{
 		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
 		INIT_NODE_STMT(stmt);
 		stmt->write = $1;
