@@ -3,7 +3,10 @@ src/compilador.tab.c
 src/compilador.tab.h
 src/compilador
 src/lex.yy.c
+src/*.swp
 testes/a.out
 testes/*.o
 testes/*.pas.s
+testes/*.swp
+*.swp
 
