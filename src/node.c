@@ -244,6 +244,7 @@ void genCodeAsign(char *name, struct NodeExpression *value) {
 
 void genCodeWrite(struct NodeWrite *node) {
 	fprintf(f,"\tpush rax\n");
+	fprintf(f,"\tpush rbx\n");
 	fprintf(f,"\tpush rcx\n");
 	fprintf(f,"\tpush rdx\n");
 
@@ -256,6 +257,7 @@ void genCodeWrite(struct NodeWrite *node) {
 
 	fprintf(f,"\tpop rdx\n");
 	fprintf(f,"\tpop rcx\n");
+	fprintf(f,"\tpop rbx\n");
 	fprintf(f,"\tpop rax\n");
 }
 
@@ -284,8 +286,13 @@ void genCodeNodeTermo(struct NodeTermo *node) {
 		fprintf(f,"\tpop rcx\n");
 		if(node->operation == MULT)
 			fprintf(f,"\tmul rcx\n");
-		else
-			fprintf(f,"\tnop\n");
+		else if(node->operation == DIV) {
+			fprintf(f,"\tmov rbx, rax\n");
+			fprintf(f,"\tmov rax, rcx\n");
+			fprintf(f,"\tmov rcx, rbx\n");
+			fprintf(f,"\tcqo\n"); // Extend rax to rdx:rax
+			fprintf(f,"\tidiv rcx\n");
+		}
 	} else
 		genCodeNodeTerminal(node->terminal);
 }

@@ -101,7 +101,7 @@ declara_var:
 			vars->var = $1;
 			$$ = vars; 
 		} else {
-			printf("TIPO DE VARIAVEL NAO RECONHECIDO");
+			printf("ERROR: Variable type not recognized\n");
 			exit(-1);
 		}
 	}
@@ -281,12 +281,10 @@ comando_composto:
 comandos:
 	comandos comando PONTO_E_VIRGULA
 	{
-		printf("======> %s\n", $1->asign->var->name);
 		enqueueStatement($1, $2);
 	} |
 	comando PONTO_E_VIRGULA
 	{
-		printf("======> %s\n", $1->asign->var->name);
 		$$ = $1;	
 	}
 ;
@@ -315,7 +313,7 @@ ident:
 	T_IDENT
 	{
 		if(strlen($<string>1) > MAX_IDENT_LEN) {
-			printf("token len > MAX_IDENT_LEN");
+			printf("ERROR: Ident length > MAX_IDENT_LEN\n");
 			exit(-1);
 		}
 		char *ident = malloc((strlen($<string>1)+1)*sizeof(char));
@@ -328,7 +326,7 @@ numero:
 	T_NUMERO
 	{
 		if(strlen($<string>1) > MAX_IDENT_LEN) {
-			printf("token len > MAX_IDENT_LEN");
+			printf("ERROR: Number length > MAX_IDENT_LEN\n");
 			exit(-1);
 		}
 		char *num = malloc((strlen($<string>1)+1)*sizeof(char));
