@@ -4,9 +4,9 @@ src/compilador.tab.h
 src/compilador
 src/lex.yy.c
 src/*.swp
-testes/a.out
-testes/*.o
-testes/*.pas.s
-testes/*.swp
+tests/a.out
+tests/*.o
+tests/*.pas.s
+tests/*.swp
 *.swp
 
