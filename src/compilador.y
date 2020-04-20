@@ -24,13 +24,15 @@ char *binName;
 	struct NodeTerminal *terminal;
 	struct NodeAsignVariable *asign;
 	struct NodeWrite *write;
+	struct NodeIf *if_;
+	struct NodeWhile *while_;
 }
 
 %token PROGRAM ABRE_PARENTESES FECHA_PARENTESES VIRGULA PONTO_E_VIRGULA  DOIS_PONTOS  
 %token PONTO T_BEGIN T_END VAR ATRIBUICAO T_IF  T_LABEL  T_TYPE  T_GOTO T_THEN 
-%token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT  
+%token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT T_MOD
 %token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITE T_READ
-%token T_IDENT T_NUMERO
+%token T_IDENT T_NUMERO 
 
 
 %type <number> numero
@@ -43,8 +45,10 @@ char *binName;
 %type <termo> termo
 %type <terminal> terminal
 %type <asign> atribuicaoInteiro
-%type <stmt> comando_composto comandos comando
+%type <stmt> comando_composto comandos comando cond_else
 %type <write> imprime
+%type <if_> comando_condicional
+%type <while_> comando_repetitivo
 
 %nonassoc IFX
 %nonassoc T_ELSE
@@ -192,6 +196,16 @@ termo:
 		termo->terminal = $3;
 		$$ = termo;
 	} |
+	termo T_MOD terminal
+	{
+		struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));
+		INIT_TERMO(termo);
+		termo->termo = $1;
+		termo->operation = MOD;
+		termo->terminal = $3;
+		$$ = termo;
+	} |
+
 	termo T_AND terminal |
 	terminal
 	{
@@ -230,15 +244,35 @@ terminal:
 
 comando_repetitivo: 
 	T_WHILE expressao T_DO comando_composto
+	{
+		struct NodeWhile *while_ = malloc(sizeof(struct NodeWhile));
+		while_->cond = $2;
+		while_->loopBlock = $4;
+		$$ = while_;
+	}
 ;
 
 comando_condicional:
 	T_IF expressao T_THEN comando_composto cond_else
+	{
+		struct NodeIf *if_ = malloc(sizeof(struct NodeIf));
+		INIT_IF(if_);
+		if_->cond = $2;
+		if_->ifBlock = $4;
+		if_->elseBlock = $5;
+		$$ = if_;
+	}
 ;
 
 cond_else: 
-	T_ELSE comando_composto |
+	T_ELSE comando_composto
+	{
+		$$ = $2;
+	} |
 	%prec IFX
+	{
+		$$ = NULL;
+	}
 ; 
                                    
 
@@ -290,8 +324,22 @@ comandos:
 ;
 
 comando: 
-	comando_repetitivo |
-	comando_condicional |
+	comando_repetitivo 
+	{
+		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
+		INIT_NODE_STMT(stmt);
+		stmt->while_ = $1;
+		$$ = stmt;
+
+	} |
+	comando_condicional
+	{
+		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
+		INIT_NODE_STMT(stmt);
+		stmt->if_ = $1;
+		$$ = stmt;
+
+	} |
 	atribuicaoInteiro
 	{
 		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
@@ -370,10 +418,10 @@ int main(int argc, char **argv) {
 
 
 	printf("\n\n ---- AST ---- \n\n");
-	root->print(root);
-	root->pgrmBlock->print(root->pgrmBlock);
+	printNodeRoot(root);
+	printNodeBlock(root->pgrmBlock);
 
-	root->genCode(root);	
+	genCodeNodeRoot(root);	
 
 
 	return 0;

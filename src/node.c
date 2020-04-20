@@ -5,6 +5,20 @@
 #include "node.h"
 
 extern char *binName;
+int ifElseLabelCount = 0;
+int whileLabelCount = 0;
+
+char *getIfElseLabel() {
+	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
+	sprintf(label, "ifelse_%d", ifElseLabelCount++);
+	return label;
+}
+
+char *getWhileLabel() {
+	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
+	sprintf(label, "while_%d", whileLabelCount++);
+	return label;
+}
 
 int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node) {
 	if(!head)
@@ -58,7 +72,7 @@ void printNodeBlock(struct NodeBlock *node) {
 		struct NodeStatemet *stmt = node->stmt;
 		printf("STMTS:\n");
 		while(stmt) {
-			stmt->print(stmt);
+			printNodeStmt(stmt);
 			printf("--\n");
 			stmt = stmt->next;
 		}
@@ -75,6 +89,10 @@ void printNodeStmt(struct NodeStatemet *node) {
 		printf("write( ");
 		printNodeExpression(node->write->expr);
 		printf(" )\n");
+	} else if(node->if_) {
+		printNodeIf(node->if_);	
+	} else if(node->while_) {
+		printNodeWhile(node->while_);	
 	}
 }
 
@@ -87,6 +105,8 @@ void printOperation(enum Operation op) {
 		printf("*");
 	else if(op == DIV)
 		printf("/");
+	else if(op == MOD)
+		printf(" mod ");
 }
 
 void printNodeTerminal(struct NodeTerminal *node) {
@@ -125,6 +145,41 @@ void printNodeSimpleExpression(struct NodeSimpleExpression *node) {
 
 void printNodeExpression(struct NodeExpression *node) {
 	printNodeSimpleExpression(node->simpleExpr);
+}
+
+void printNodeIf(struct NodeIf *node) {
+	printf("if( ");
+	printNodeExpression(node->cond);
+	printf(" ) {\n");
+	struct NodeStatemet *stmt = node->ifBlock;
+	while(stmt) {
+		printNodeStmt(stmt);
+		stmt = stmt->next;
+	}
+	printf("} ");
+	if(node->elseBlock) {
+		printf("else {\n");
+		struct NodeStatemet *stmt = node->elseBlock;
+		while(stmt) {
+			printNodeStmt(stmt);
+			stmt = stmt->next;
+		}
+		printf("}");
+	}
+	printf("\n");
+}
+
+void printNodeWhile(struct NodeWhile *node) {
+	printf("while( ");
+	printNodeExpression(node->cond);
+	printf(" ) {\n");
+	struct NodeStatemet *stmt = node->loopBlock;
+	while(stmt) {
+		printNodeStmt(stmt);
+		stmt = stmt->next;
+	}
+	printf("}\n");
+
 }
 
 // +++++++++++ CODE GENERATION ++++++++++
@@ -183,7 +238,7 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	fprintf(f,"\tpush rbp\n");
 	fprintf(f,"\tmov rbp, rsp\n");
 	
-	node->pgrmBlock->genCode(node->pgrmBlock);
+	genCodeNodeBlock(node->pgrmBlock);
 	
 	// RESTORE STACK
 	fprintf(f,"\tmov rsp, rbp\n");
@@ -223,7 +278,7 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 	if(node->stmt) {
 		struct NodeStatemet *stmt = node->stmt;
 		while(stmt) {
-			stmt->genCode(stmt);
+			genCodeNodeStmt(stmt);
 			stmt = stmt->next;
 		}
 	}
@@ -266,6 +321,10 @@ void genCodeNodeStmt(struct NodeStatemet *node) {
 		genCodeAsign(node->asign->var->name, node->asign->value);
 	else if(node->write)
 		genCodeWrite(node->write);
+	else if(node->if_)
+		genCodeNodeIf(node->if_);
+	else if(node->while_)
+		genCodeNodeWhile(node->while_);
 }
 
 void genCodeNodeTerminal(struct NodeTerminal *node) {
@@ -292,6 +351,13 @@ void genCodeNodeTermo(struct NodeTermo *node) {
 			fprintf(f,"\tmov rcx, rbx\n");
 			fprintf(f,"\tcqo\n"); // Extend rax to rdx:rax
 			fprintf(f,"\tidiv rcx\n");
+		} else if(node->operation == MOD) {
+			fprintf(f,"\tmov rbx, rax\n");
+			fprintf(f,"\tmov rax, rcx\n");
+			fprintf(f,"\tmov rcx, rbx\n");
+			fprintf(f,"\tcqo\n"); // Extend rax to rdx:rax
+			fprintf(f,"\tidiv rcx\n");
+			fprintf(f,"\tmov rax, rdx\n");
 		}
 	} else
 		genCodeNodeTerminal(node->terminal);
@@ -315,6 +381,51 @@ void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node) {
 
 void genCodeNodeExpression(struct NodeExpression *node) {
 	genCodeNodeSimpleExpression(node->simpleExpr);
+}
+
+void genCodeNodeIf(struct NodeIf *node) {
+	genCodeNodeExpression(node->cond);
+	char *ifLabel = getIfElseLabel(); 
+	fprintf(f,"\tcmp rax, 0\n"); // Compare to zero(false)
+	fprintf(f,"\tje %s\n", ifLabel);
+	struct NodeStatemet *stmt = node->ifBlock;
+	while(stmt) {
+		genCodeNodeStmt(stmt);
+		stmt = stmt->next;
+	}
+	if(node->elseBlock) {
+		char *elseLabel = getIfElseLabel();
+		fprintf(f,"\tjmp %s\n", elseLabel);
+		fprintf(f,"%s:\n", ifLabel);
+		struct NodeStatemet *stmt = node->elseBlock;
+		while(stmt) {
+			genCodeNodeStmt(stmt);
+			stmt = stmt->next;
+		}
+		fprintf(f,"%s:\n", elseLabel);
+		free(elseLabel);
+	} else {
+		fprintf(f,"%s:\n", ifLabel);
+	}	
+	free(ifLabel);
+}
+
+void genCodeNodeWhile(struct NodeWhile *node) {
+	char *whileLabelBegin = getWhileLabel();
+	char *whileLabelEnd = getWhileLabel();
+	fprintf(f,"%s:\n", whileLabelBegin);
+	genCodeNodeExpression(node->cond);
+	fprintf(f,"\tcmp rax, 0\n"); // Compare to zero(false)
+	fprintf(f,"\tje %s\n", whileLabelEnd);
+	struct NodeStatemet *stmt = node->loopBlock;
+	while(stmt) {
+		genCodeNodeStmt(stmt);
+		stmt = stmt->next;
+	}
+	fprintf(f,"\tjmp %s\n", whileLabelBegin);
+	fprintf(f,"%s:\n", whileLabelEnd);
+	free(whileLabelBegin);
+	free(whileLabelEnd);
 }
 
 

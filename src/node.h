@@ -1,31 +1,23 @@
 #define MAX_IDENT_LEN 30
-enum Operation{SUM, MINUS, MULT, DIV, NOP};
+enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP};
 
-#define INIT_NODE_ROOT(node) node->pgrmBlock = NULL; \
-								node->print = printNodeRoot; \
-								node->genCode = genCodeNodeRoot
+#define INIT_NODE_ROOT(node) node->pgrmBlock = NULL
 
-#define INIT_NODE_BLOCK(node) node->intVars = node->stmt = NULL; \
-								node->print = printNodeBlock; \
-								node->genCode = genCodeNodeBlock
+#define INIT_NODE_BLOCK(node) node->intVars = node->stmt = NULL
 
-#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->next = NULL; \
-								node->print = printNodeStmt; \
-								node->genCode = genCodeNodeStmt
+#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->next = NULL
 
-#define INIT_EXPRESSION(node) node->simpleExpr = NULL; \
-								node->print = printNodeExpression
+#define INIT_EXPRESSION(node) node->simpleExpr = NULL
 
 #define INIT_SIMPLE_EXPRESSION(node) node->simpleExpr = node->termo = NULL; \
-								node->operation = NOP; \
-								node->print = printNodeSimpleExpression
+								node->operation = NOP
 
 #define INIT_TERMO(node) node->termo = node->terminal = NULL; \
-								node->operation = NOP; \
-								node->print = printNodeTermo
+								node->operation = NOP
 
-#define INIT_TERMINAL(node) node->expr = node->variable = NULL; \
-								node->print = printNodeTerminal
+#define INIT_TERMINAL(node) node->expr = node->variable = NULL
+
+#define INIT_IF(node) node->cond = node->ifBlock = node->elseBlock = NULL
 
 struct Variable {
 	char *name;
@@ -41,9 +33,6 @@ struct DeclIntegerVariable {
 struct NodeRoot {
 	char *pgrmName;
 	struct NodeBlock *pgrmBlock;
-	
-	void (*print)(struct NodeRoot *node);
-	void (*genCode)(struct NodeRoot *node);
 };
 
 struct NodeStatemet {
@@ -52,39 +41,27 @@ struct NodeStatemet {
 	struct NodeWhile *while_;
 	struct NodeWrite *write;
 	struct NodeStatemet *next;
-
-	void (*print)(struct NodeStatemet *node);
-	void (*genCode)(struct NodeStatemet *node);
 };
 
 struct NodeBlock {
 	struct DeclIntegerVariable *intVars;
 	struct NodeStatemet *stmt;
-	
-	void (*print)(struct NodeBlock *node);
-	void (*genCode)(struct NodeBlock *node);
 };
 
 struct NodeExpression {
 	struct NodeSimpleExpression *simpleExpr;
-	
-	void (*print)(struct NodeExpression *node);
 };
 
 struct NodeSimpleExpression {
 	struct NodeSimpleExpression *simpleExpr;
 	enum Operation operation;
 	struct NodeTermo *termo;
-	
-	void (*print)(struct NodeSimpleExpression *node);
 };
 
 struct NodeTermo {
 	struct NodeTermo *termo;
 	enum Operation operation;
 	struct NodeTerminal *terminal;
-	
-	void (*print)(struct NodeTermo *node);
 };
 
 
@@ -92,13 +69,11 @@ struct NodeTerminal {
 	int number;
 	char *variable;
 	struct NodeExpression *expr;
-	
-	void (*print)(struct NodeTerminal *node);
 };
 
 struct NodeWhile {
 	struct NodeExpression *cond;
-	struct NodeBlock *loopBlock;
+	struct NodeStatemet *loopBlock;
 };
 
 struct NodeAsignVariable {
@@ -108,8 +83,8 @@ struct NodeAsignVariable {
 
 struct NodeIf {
 	struct NodeExpression *cond;
-	struct NodeBlock *ifBlock;
-	struct NodeBlock *elseBlock;	
+	struct NodeStatemet *ifBlock;
+	struct NodeStatemet *elseBlock;	
 };
 
 struct NodeWrite {
@@ -134,6 +109,10 @@ void printNodeTermo(struct NodeTermo *node);
 
 void printNodeTerminal(struct NodeTerminal *node);
 
+void printNodeWhile(struct NodeWhile *node);
+
+void printNodeIf(struct NodeIf *node);
+
 void genCodeNodeRoot(struct NodeRoot *node);
 
 void genCodeNodeBlock(struct NodeBlock *node);
@@ -147,4 +126,8 @@ void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node);
 void genCodeNodeTermo(struct NodeTermo *node);
 
 void genCodeNodeTerminal(struct NodeTerminal *node);
+
+void genCodeNodeIf(struct NodeIf *node);
+
+void genCodeNodeWhile(struct NodeWhile *node);
 
