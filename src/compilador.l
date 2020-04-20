@@ -137,6 +137,11 @@ read {
 	return T_READ;
 }
 
+mod {
+	IMPRIME("mod ");
+	return T_MOD;
+}
+
 \+ {
 	IMPRIME("sum ");
 	return T_SUM;
