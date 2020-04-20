@@ -1,3 +1,3 @@
-program teste_define_variaveis_integer(input, output);
+program empty(input, output);
 begin
 end.
