@@ -3,7 +3,7 @@ var p, c, count : integer;
 begin
 	count := 0;
 	p := 2;
-	while count-100 do 
+	while count < 100 do 
 	begin
 		c := 2;
 		while p mod c do
@@ -16,7 +16,7 @@ begin
 		end
 		else
 		begin
-			write(p);
+			writeln(p);
 			count := count + 1;
 		end;
 		p := p + 1;
