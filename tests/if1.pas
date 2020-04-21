@@ -1,20 +1,20 @@
-program if_(input, output);
+program if1(input, output);
 var a,b : integer;
 begin
 	a := 2;
    	b := 2;
 	if a - b then
 	begin
-		write(999999);
+		writeln(999999);
 	end
 	else
 	begin
 		if 1 then
 		begin
-			write(121212);
+			writeln(121212);
 		end;
-		write(0-999999);
+		writeln(0-999999);
 	end;
-	write(a);
-	write(b);
+	writeln(a);
+	writeln(b);
 end.
