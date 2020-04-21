@@ -127,9 +127,9 @@ not {
 	return T_NOT;
 }
 
-write {
+writeln {
 	IMPRIME("write ");
-	return T_WRITE;
+	return T_WRITELN;
 }
 
 read {
