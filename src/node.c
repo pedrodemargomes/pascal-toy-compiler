@@ -107,6 +107,18 @@ void printOperation(enum Operation op) {
 		printf("/");
 	else if(op == MOD)
 		printf(" mod ");
+	else if(op == EQU)
+	    printf("=");
+    else if(op == NEQU)
+	    printf("<>");
+    else if(op == GT)
+	    printf(">");
+    else if(op == GE)
+	    printf(">=");
+    else if(op == LT)
+	    printf("<");
+    else if(op == LE)
+	    printf("<=");
 }
 
 void printNodeTerminal(struct NodeTerminal *node) {
@@ -144,7 +156,11 @@ void printNodeSimpleExpression(struct NodeSimpleExpression *node) {
 }
 
 void printNodeExpression(struct NodeExpression *node) {
-	printNodeSimpleExpression(node->simpleExpr);
+    if(node == NULL)
+        return;
+    printNodeExpression(node->expr);
+    printOperation(node->operation);
+    printNodeSimpleExpression(node->simpleExpr);
 }
 
 void printNodeIf(struct NodeIf *node) {
@@ -380,7 +396,38 @@ void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node) {
 }
 
 void genCodeNodeExpression(struct NodeExpression *node) {
-	genCodeNodeSimpleExpression(node->simpleExpr);
+    if(node->expr) {
+		genCodeNodeExpression(node->expr);
+		fprintf(f,"\tpush rax\n");
+		genCodeNodeSimpleExpression(node->simpleExpr);
+		fprintf(f,"\tpop rcx\n");
+	    if(node->operation == EQU) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsete al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        } else if(node->operation == NEQU) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsetne al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        } else if(node->operation == GT) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsetg al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        } else if(node->operation == GE) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsetge al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        } else if(node->operation == LT) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsetl al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        } else if(node->operation == LE) {
+            fprintf(f,"\tcmp rcx, rax\n");
+            fprintf(f,"\tsetle al\n");
+            fprintf(f,"\tmovsx rax, al\n");
+        }
+	} else
+		genCodeNodeSimpleExpression(node->simpleExpr);
 }
 
 void genCodeNodeIf(struct NodeIf *node) {

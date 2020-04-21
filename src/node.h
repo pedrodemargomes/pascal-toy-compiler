@@ -1,5 +1,5 @@
 #define MAX_IDENT_LEN 30
-enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP};
+enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE};
 
 #define INIT_NODE_ROOT(node) node->pgrmBlock = NULL
 
@@ -7,7 +7,8 @@ enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP};
 
 #define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->next = NULL
 
-#define INIT_EXPRESSION(node) node->simpleExpr = NULL
+#define INIT_EXPRESSION(node) node->expr = node->simpleExpr = NULL; \
+								node->operation = NOP
 
 #define INIT_SIMPLE_EXPRESSION(node) node->simpleExpr = node->termo = NULL; \
 								node->operation = NOP
@@ -49,7 +50,9 @@ struct NodeBlock {
 };
 
 struct NodeExpression {
-	struct NodeSimpleExpression *simpleExpr;
+    struct NodeExpression *expr;
+    enum Operation operation;
+    struct NodeSimpleExpression *simpleExpr;
 };
 
 struct NodeSimpleExpression {

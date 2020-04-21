@@ -31,7 +31,7 @@ char *binName;
 %token PROGRAM ABRE_PARENTESES FECHA_PARENTESES VIRGULA PONTO_E_VIRGULA  DOIS_PONTOS  
 %token PONTO T_BEGIN T_END VAR ATRIBUICAO T_IF  T_LABEL  T_TYPE  T_GOTO T_THEN 
 %token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT T_MOD
-%token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITE T_READ
+%token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITELN T_READ
 %token T_IDENT T_NUMERO 
 
 
@@ -133,12 +133,60 @@ lista_idents:
 ;
 
 expressao:
-	expressao T_MENOR expressaoSimples |
-	expressao T_MENOR_IGUAL expressaoSimples |
-	expressao T_MAIOR expressaoSimples |
-	expressao T_MAIOR_IGUAL expressaoSimples |
-	expressao T_IGUAL expressaoSimples |
-	expressao T_DIFERENTE expressaoSimples |
+	expressao T_MENOR expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = LT;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
+	expressao T_MENOR_IGUAL expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = LE;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
+	expressao T_MAIOR expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = GT;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
+	expressao T_MAIOR_IGUAL expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = GE;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
+	expressao T_IGUAL expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = EQU;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
+	expressao T_DIFERENTE expressaoSimples
+    {
+        struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
+		INIT_EXPRESSION(expr);
+        expr->expr = $1;
+        expr->operation = NEQU;
+		expr->simpleExpr = $3;
+		$$ = expr;
+    } |
 	expressaoSimples
 	{
 		struct NodeExpression *expr = malloc(sizeof(struct NodeExpression));	
@@ -288,7 +336,7 @@ atribuicaoInteiro:
 ;
 
 imprime: 
-	T_WRITE ABRE_PARENTESES expressao FECHA_PARENTESES
+	T_WRITELN ABRE_PARENTESES expressao FECHA_PARENTESES
 	{
 		struct NodeWrite *write = malloc(sizeof(struct NodeWrite)); 
 		write->expr = $3;
