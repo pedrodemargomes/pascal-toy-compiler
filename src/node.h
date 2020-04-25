@@ -5,7 +5,7 @@ enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE};
 
 #define INIT_NODE_BLOCK(node) node->intVars = node->stmt = NULL
 
-#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->next = NULL
+#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->read = node->next = NULL
 
 #define INIT_EXPRESSION(node) node->expr = node->simpleExpr = NULL; \
 								node->operation = NOP
@@ -41,6 +41,7 @@ struct NodeStatemet {
 	struct NodeIf *if_;
 	struct NodeWhile *while_;
 	struct NodeWrite *write;
+	struct NodeRead *read;
 	struct NodeStatemet *next;
 };
 
@@ -94,6 +95,10 @@ struct NodeWrite {
 	struct NodeExpression *expr;
 };
 
+struct NodeRead {
+	struct Variable *var;
+};
+
 int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node);
 
 int enqueueVariable(struct Variable *head, struct Variable *node);
@@ -134,3 +139,4 @@ void genCodeNodeIf(struct NodeIf *node);
 
 void genCodeNodeWhile(struct NodeWhile *node);
 
+void genCodeNodeRead(struct NodeRead *node);

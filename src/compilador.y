@@ -26,6 +26,7 @@ char *binName;
 	struct NodeWrite *write;
 	struct NodeIf *if_;
 	struct NodeWhile *while_;
+	struct NodeRead *read;
 }
 
 %token PROGRAM ABRE_PARENTESES FECHA_PARENTESES VIRGULA PONTO_E_VIRGULA  DOIS_PONTOS  
@@ -39,7 +40,7 @@ char *binName;
 %type <string> ident
 %type <block> bloco
 %type <declIntVar> declara_var parte_declara_vars
-%type <variable> lista_id_var
+%type <variable> lista_id_var lista_leitura
 %type <expr> expressao
 %type <simpleExpr> expressaoSimples
 %type <termo> termo
@@ -49,6 +50,7 @@ char *binName;
 %type <write> imprime
 %type <if_> comando_condicional
 %type <while_> comando_repetitivo
+%type <read> le
 
 %nonassoc IFX
 %nonassoc T_ELSE
@@ -346,11 +348,26 @@ imprime:
 
 le:
 	T_READ ABRE_PARENTESES lista_leitura FECHA_PARENTESES
+	{
+		struct NodeRead *read = malloc(sizeof(struct NodeRead));
+		read->var = $3;
+		$$ = read;
+	}
 ;
 
 lista_leitura:
-	lista_leitura VIRGULA ident |
+	lista_leitura VIRGULA ident {
+		struct Variable *var = malloc(sizeof(struct Variable));
+		var->name = $3;
+		enqueueVariable($1, var);
+	} |
 	ident
+	{
+		struct Variable *var = malloc(sizeof(struct Variable));
+		var->name = $1;
+		var->next = NULL;
+		$$ = var;
+	}
 ;
 
 comando_composto:
@@ -403,6 +420,12 @@ comando:
 		$$ = stmt;
 	} |
 	le
+	{
+		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
+		INIT_NODE_STMT(stmt);
+		stmt->read = $1;
+		$$ = stmt;
+	}
 ;
 
 ident:
