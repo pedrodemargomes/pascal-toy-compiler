@@ -2,7 +2,7 @@
 
 - [x] Simple variable assignment(e.g. a = 1)
 - [x] Simple write(e.g. write(a) or write(12))
-- [x] Expressions(e.g. 4+a*5-2)
+- [x] Expressions(e.g. 4+a*5-2 >,>=, <=, <>, =)
 - [x] If..Else
 - [x] While
 - [ ] Add error messages
