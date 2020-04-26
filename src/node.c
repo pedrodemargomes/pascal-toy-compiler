@@ -95,6 +95,8 @@ void printNodeStmt(struct NodeStatemet *node) {
 		printNodeIf(node->if_);	
 	} else if(node->while_) {
 		printNodeWhile(node->while_);	
+	} else if(node->read) {
+		printNodeRead(node->read);
 	}
 }
 
@@ -121,6 +123,16 @@ void printOperation(enum Operation op) {
 	    printf("<");
     else if(op == LE)
 	    printf("<=");
+}
+
+void printNodeRead(struct NodeRead *node) {
+	struct Variable *var = node->var;
+	printf("READ( ");
+	while(var) {
+		printf("%s ", var->name);
+		var = var->next;
+	}
+	printf(")\n");
 }
 
 void printNodeTerminal(struct NodeTerminal *node) {

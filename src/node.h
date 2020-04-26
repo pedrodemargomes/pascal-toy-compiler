@@ -121,6 +121,8 @@ void printNodeWhile(struct NodeWhile *node);
 
 void printNodeIf(struct NodeIf *node);
 
+void printNodeRead(struct NodeRead *node);
+
 void genCodeNodeRoot(struct NodeRoot *node);
 
 void genCodeNodeBlock(struct NodeBlock *node);
