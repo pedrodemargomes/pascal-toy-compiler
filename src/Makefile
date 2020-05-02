@@ -3,7 +3,7 @@ DEBUG ?=
 all: compilador
 
 compilador: lex.yy.c compilador.tab.c node.c
-	gcc lex.yy.c compilador.tab.c node.c ${DEBUG} -ly -lc -o compilador
+	gcc lex.yy.c compilador.tab.c node.c ${DEBUG} -Wno-incompatible-pointer-types -ly -lc -o compilador
 
 lex.yy.c: compilador.l 
 	flex -i compilador.l
