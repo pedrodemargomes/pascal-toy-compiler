@@ -1,11 +1,14 @@
 #define MAX_IDENT_LEN 30
 enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE};
+enum ParamType{VAL, REF, NDEF_PARAM_TYPE};
+enum VarType{INTEGER, NDEF_VAR_TYPE};
 
 #define INIT_NODE_ROOT(node) node->pgrmBlock = NULL
 
-#define INIT_NODE_BLOCK(node) node->intVars = node->stmt = NULL
+#define INIT_NODE_BLOCK(node) node->intVars = node->subroutine = node->stmt = NULL
 
-#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = node->read = node->next = NULL
+#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = \
+								 node->read = node->subroutineCall = node->next = NULL
 
 #define INIT_EXPRESSION(node) node->expr = node->simpleExpr = NULL; \
 								node->operation = NOP
@@ -20,6 +23,19 @@ enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE};
 
 #define INIT_IF(node) node->cond = node->ifBlock = node->elseBlock = NULL
 
+#define INIT_SUBROUTINE(node) node->name = node->returnType = node->params = node->block = node->next = NULL
+
+#define INIT_SUBROUTINE_CALL(node) node->name = node->args = NULL
+
+#define INIT_PARAM(node) node->name = node->next = NULL; \
+								node->paramType = NDEF_PARAM_TYPE; \
+								node->varType = NDEF_VAR_TYPE
+
+#define INIT_GENVAR(node) node->name = node->prev = NULL; \
+								node->offset = node->level = -1
+
+#define INIT_GENSUBROUTINE(node) node->name = node->returnType = node->params = node->prev = NULL
+
 struct Variable {
 	char *name;
 	struct Variable *next;
@@ -27,6 +43,18 @@ struct Variable {
 
 struct DeclIntegerVariable {
 	struct Variable *var;	
+};
+
+struct Parameter {
+	char *name;
+	enum ParamType paramType;
+	enum VarType varType;
+	struct Parameter *next;
+};
+
+struct ExpressionList {
+	struct NodeExpression *expr;
+	struct ExpressionList *next;
 };
 
 // ++++++++ NODES ++++++++++
@@ -42,11 +70,13 @@ struct NodeStatemet {
 	struct NodeWhile *while_;
 	struct NodeWrite *write;
 	struct NodeRead *read;
+	struct NodeSubroutineCall *subroutineCall;
 	struct NodeStatemet *next;
 };
 
 struct NodeBlock {
 	struct DeclIntegerVariable *intVars;
+	struct NodeSubroutine *subroutine;
 	struct NodeStatemet *stmt;
 };
 
@@ -99,9 +129,28 @@ struct NodeRead {
 	struct Variable *var;
 };
 
+struct NodeSubroutine {
+	char *name;
+	char *returnType;
+	struct Parameter *params;
+	struct NodeBlock *block;
+	struct NodeSubroutine *next;
+};
+
+struct NodeSubroutineCall {
+	char *name;
+	struct ExpressionList *args;
+};
+
+int enqueueExpressionList(struct ExpressionList *head, struct ExpressionList *node);
+
 int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node);
 
+int enqueueSubroutine(struct NodeSubroutine *head, struct NodeSubroutine *node);
+
 int enqueueVariable(struct Variable *head, struct Variable *node);
+
+int enqueueParameter(struct Parameter *head, struct Parameter *node);
 
 void printNodeRoot(struct NodeRoot *node);
 
@@ -123,6 +172,10 @@ void printNodeIf(struct NodeIf *node);
 
 void printNodeRead(struct NodeRead *node);
 
+void printNodeSubroutine(struct NodeSubroutine *node);
+
+void printNodeSubroutineCall(struct NodeSubroutineCall *node);
+
 void genCodeNodeRoot(struct NodeRoot *node);
 
 void genCodeNodeBlock(struct NodeBlock *node);
@@ -142,3 +195,8 @@ void genCodeNodeIf(struct NodeIf *node);
 void genCodeNodeWhile(struct NodeWhile *node);
 
 void genCodeNodeRead(struct NodeRead *node);
+
+void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node);
+
+void genCodeNodeSubroutine(struct NodeSubroutine *node);
+

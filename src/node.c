@@ -20,7 +20,43 @@ char *getWhileLabel() {
 	return label;
 }
 
+int enqueueExpressionList(struct ExpressionList *head, struct ExpressionList *node) {
+	if(!head)
+		return -1;		
+	while(head->next)
+		head = head->next;
+
+	node->next = NULL;
+	head->next = node;
+
+	return 0;
+}
+
 int enqueueStatement(struct NodeStatemet *head, struct NodeStatemet *node) {
+	if(!head)
+		return -1;		
+	while(head->next)
+		head = head->next;
+
+	node->next = NULL;
+	head->next = node;
+
+	return 0;
+}
+
+int enqueueSubroutine(struct NodeSubroutine *head, struct NodeSubroutine *node) {
+	if(!head)
+		return -1;		
+	while(head->next)
+		head = head->next;
+
+	node->next = NULL;
+	head->next = node;
+
+	return 0;
+}
+
+int enqueueParameter(struct Parameter *head, struct Parameter *node) {
 	if(!head)
 		return -1;		
 	while(head->next)
@@ -57,6 +93,7 @@ void printNodeRoot(struct NodeRoot *node) {
 	printf("=== NODE ROOT ===\n");
 	printf("node->pgrmName = %s\n", node->pgrmName);
 	printf("++++\n");
+	printNodeBlock(node->pgrmBlock);
 }
 
 void printNodeBlock(struct NodeBlock *node) {
@@ -69,6 +106,11 @@ void printNodeBlock(struct NodeBlock *node) {
 			var = var->next;
 		}
 		printf("\n");
+	}
+	struct NodeSubroutine *subroutine = node->subroutine;
+	while(subroutine) {
+		printNodeSubroutine(subroutine);
+		subroutine = subroutine->next;
 	}
 	if(node->stmt) {
 		struct NodeStatemet *stmt = node->stmt;
@@ -97,6 +139,8 @@ void printNodeStmt(struct NodeStatemet *node) {
 		printNodeWhile(node->while_);	
 	} else if(node->read) {
 		printNodeRead(node->read);
+	} else if(node->subroutineCall) {
+		printNodeSubroutineCall(node->subroutineCall);
 	}
 }
 
@@ -212,6 +256,39 @@ void printNodeWhile(struct NodeWhile *node) {
 
 }
 
+void printNodeSubroutineCall(struct NodeSubroutineCall *node) {
+	printf("%s(", node->name);
+	struct ExpressionList *arg = node->args;
+	while(arg) {
+		printNodeExpression(arg->expr);
+		printf(", ");
+		arg = arg->next;
+	}
+	printf(")\n");
+}
+
+void printNodeSubroutine(struct NodeSubroutine *node) {
+	if(node->returnType)	
+		printf("%s Function ", node->returnType);
+	else
+		printf("Procedure ");
+
+	printf("%s", node->name);
+
+	struct Parameter *params = node->params;
+	printf("( ");
+	while(params) {
+		printf("%s %s %s, ",
+				params->paramType == REF ? "VAR" : "",
+				params->name,
+			 	params->varType == INTEGER ? "INTEGER" : ""	
+			);
+		params = params->next;	
+	}
+	printf(")\n");
+	printNodeBlock(node->block);
+}
+
 // +++++++++++ CODE GENERATION ++++++++++
 
 #define INIT_VAR_VALUE 0
@@ -220,43 +297,105 @@ FILE *f;
 
 struct GenCodeVariable {
 	char *name;
-	struct GenCodeVariable *next;
+	int offset;
+	int level;
+	struct GenCodeVariable *prev;
 };
 
-struct GenCodeVariable *genCodeGlobalVarHead = NULL;
+struct GenCodeSubroutine {
+	char *name;
+	char *returnType;
+	struct Parameter *params;
+	struct GenCodeSubroutine *prev;
+};
 
-void enqueueGenCodeVariable(struct GenCodeVariable *node) {
-	struct GenCodeVariable *head = genCodeGlobalVarHead;
+struct GenCodeVariable *genCodeVarHead = NULL;
+struct GenCodeSubroutine *genCodeSubroutineHead = NULL;
+
+struct GenCodeSubroutine *getSubroutine(char *name) {
+	struct GenCodeSubroutine *head = genCodeSubroutineHead;
 	if(!head) {
-		genCodeGlobalVarHead = node;
-		genCodeGlobalVarHead->next = NULL;
+		printf("ERROR: Subroutine (%s) node found\n", name);
+		exit(-1);
+	}
+	while(head) {
+		if(strcmp(head->name, name) == 0)
+			return head;
+		head = head->prev;
+	}
+
+	printf("ERROR: Subroutine (%s) node found\n", name);
+	exit(-1);
+}
+
+void pushGenCodeSubroutine(struct GenCodeSubroutine *node) {
+	struct GenCodeSubroutine *head = genCodeSubroutineHead;
+	if(!head) {
+		genCodeSubroutineHead = node;
+		genCodeSubroutineHead->prev = NULL;
 		return ;
 	}
+
+	while(head) {
+		if(strcmp(head->name, node->name) == 0) {
+			printf("ERROR: Subroutine name (%s) already used\n", node->name);
+			exit(-1);
+		}
+		head = head->prev;
+	}
 	
-	while(head->next) {
+	node->prev = genCodeSubroutineHead;
+	genCodeSubroutineHead = node;
+}
+
+void popGenCodeSubroutine() {
+	// TODO: Free top
+	genCodeSubroutineHead = genCodeSubroutineHead->prev;
+}
+
+struct GenCodeVariable *getVariable(char *name) {
+	struct GenCodeVariable *head = genCodeVarHead;
+	if(!head) {
+		printf("ERROR: Variable (%s) node found\n", name);
+		exit(-1);
+	}
+	while(head) {
+		if(strcmp(head->name, name) == 0)
+			return head;
+		head = head->prev;
+	}
+
+	printf("ERROR: Variable (%s) node found\n", name);
+	exit(-1);
+}
+
+void pushGenCodeVariable(struct GenCodeVariable *node) {
+	struct GenCodeVariable *head = genCodeVarHead;
+	if(!head) {
+		genCodeVarHead = node;
+		genCodeVarHead->prev = NULL;
+		genCodeVarHead->offset = -16;
+		return ;
+	}
+
+	int offset = -16;	
+	while(head && head->level == node->level) {
 		if(strcmp(head->name, node->name) == 0) {
 			printf("ERROR: Variable name (%s) already used\n", node->name);
 			exit(-1);
-		}		
-		head = head->next;
+		}
+		offset -= 16;
+		head = head->prev;
 	}
 	
-	node->next = NULL;
-	head->next = node;
-
-	return ;
+	node->offset = offset;
+	node->prev = genCodeVarHead;
+	genCodeVarHead = node;
 }
 
-void checkIfVarExists(char *name) {
-	struct GenCodeVariable *head = genCodeGlobalVarHead;
-	while(head) {
-		if(strcmp(head->name, name) == 0)
-			return;
-		head = head->next;
-	}
-
-	printf("ERROR: Variable (%s) not found\n", name);
-	exit(-1);
+void popGenCodeVariable() {
+	// TODO: Free top
+	genCodeVarHead = genCodeVarHead->prev;
 }
 
 void genCodeNodeRoot(struct NodeRoot *node) {
@@ -269,16 +408,8 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	fprintf(f,"\tsection .text\n");
 	fprintf(f,"main:\n");
 	
-	// CREATE NEW STACK FRAME
-	fprintf(f,"\tpush rbp\n");
-	fprintf(f,"\tmov rbp, rsp\n");
-
 	genCodeNodeBlock(node->pgrmBlock);
 	
-	// RESTORE STACK
-	fprintf(f,"\tmov rsp, rbp\n");
-	fprintf(f,"\tpop rbp\n");
-
 	// EXECUTE SYSCALL
 	// fprintf(f,"\tmov rax, 60\n");
 	// fprintf(f,"\txor rdi, rdi\n");
@@ -287,27 +418,45 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	fprintf(f,"\tsection .rodata\n");
 	fprintf(f,"formatNumPrintf:\tdb '%%ld', 10, 0\n");
 	fprintf(f,"formatNumScanf:\tdb '%%ld', 0\n");
-
-	fprintf(f,"\tsection .bss\n");
-	struct GenCodeVariable *genCodeVar = genCodeGlobalVarHead;
-	while(genCodeVar) {
-		fprintf(f,"%s:\tresb 8\n", genCodeVar->name);
-		genCodeVar = genCodeVar->next;
-	}
 }
 
 void genCodeNodeBlock(struct NodeBlock *node) {
+	// CREATE NEW STACK FRAME
+	fprintf(f,"\tpush rbp\n");
+	fprintf(f,"\tmov rbp, rsp\n");
+	
 	if(node->intVars) {
 		struct Variable *var = node->intVars->var;
 		struct GenCodeVariable *genCodeVar;
 		while(var) {
 			genCodeVar = malloc(sizeof(struct GenCodeVariable));
+			INIT_GENVAR(genCodeVar);
 			genCodeVar->name = var->name;
-			genCodeVar->next = NULL;
-			enqueueGenCodeVariable(genCodeVar);
+			genCodeVar->level = 0;
+			
+			pushGenCodeVariable(genCodeVar);
+
+			fprintf(f,"\tmov rax, %d\n", -1);
+			fprintf(f,"\tpush rax\n");
+			fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
+			fprintf(f,"\tpush rax\n");
+
 			var = var->next;
 		}
 	}
+	
+	struct NodeSubroutine *subroutine = node->subroutine;
+	while(subroutine) {
+		struct GenCodeSubroutine *genCodeSubroutine = malloc(sizeof(struct GenCodeSubroutine));
+		INIT_GENSUBROUTINE(genCodeSubroutine);
+		genCodeSubroutine->name = subroutine->name;
+		genCodeSubroutine->returnType = subroutine->returnType;
+		genCodeSubroutine->params = subroutine->params;	
+		pushGenCodeSubroutine(genCodeSubroutine);
+		
+		subroutine = subroutine->next;
+	}
+	
 	if(node->stmt) {
 		struct NodeStatemet *stmt = node->stmt;
 		while(stmt) {
@@ -315,15 +464,31 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 			stmt = stmt->next;
 		}
 	}
+	// RESTORE STACK
+	fprintf(f,"\tmov rsp, rbp\n");
+	fprintf(f,"\tpop rbp\n");
+	fprintf(f,"\tret\n");
+	
+	subroutine = node->subroutine;
+	int numSubroutines = 0;
+	while(subroutine) {
+		genCodeNodeSubroutine(subroutine);
+		subroutine = subroutine->next;
+		numSubroutines++;
+	}
+
+	// TODO: Pop subroutines declared in this block
+	for(int i = 0;i < numSubroutines; i++)
+		popGenCodeSubroutine();
 }
 
 void genCodeAsign(char *name, struct NodeExpression *value) {
 	// Generate expression asm and save result in rax register
 	genCodeNodeExpression(value);
-	
-	checkIfVarExists(name);
 
-	fprintf(f,"\tmov [%s], rax\n", name);
+	struct GenCodeVariable *var = getVariable(name);
+
+	fprintf(f,"\tmov [rbp%+d], rax\n", var->offset);
 }
 
 void genCodeWrite(struct NodeWrite *node) {
@@ -346,14 +511,16 @@ void genCodeNodeStmt(struct NodeStatemet *node) {
 		genCodeNodeWhile(node->while_);
 	else if(node->read)
 		genCodeNodeRead(node->read);
+	else if(node->subroutineCall)
+		genCodeNodeSubroutineCall(node->subroutineCall);
 }
 
 void genCodeNodeTerminal(struct NodeTerminal *node) {
 	if(node->expr != NULL) {
 		genCodeNodeExpression(node->expr);
 	} else if(node->variable != NULL) {
-		checkIfVarExists(node->variable);
-		fprintf(f,"\tmov rax, [%s]\n", node->variable);
+		struct GenCodeVariable *var = getVariable(node->variable);
+		fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
 	} else
 		fprintf(f,"\tmov rax, %d\n", node->number);
 }
@@ -483,14 +650,24 @@ void genCodeNodeWhile(struct NodeWhile *node) {
 void genCodeNodeRead(struct NodeRead *node) {
 	struct Variable *var = node->var;
 	while(var) {
-		checkIfVarExists(var->name);
-	
-		fprintf(f,"\tlea rsi, [%s]\n", var->name);
+		struct GenCodeVariable *genVar = getVariable(var->name);
+
+		fprintf(f,"\tlea rsi, [rbp%+d]\n", genVar->offset);
 		fprintf(f,"\tmov rdi, formatNumScanf\n");
 		fprintf(f,"\txor rax, rax\n");
 		fprintf(f,"\tcall scanf wrt ..plt\n");
 		
 		var = var->next;
 	}
+}
+
+void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node) {
+	struct GenCodeSubroutine *subroutine = getSubroutine(node->name);
+	fprintf(f,"\tcall %s\n", subroutine->name);
+}
+
+void genCodeNodeSubroutine(struct NodeSubroutine *node) {
+	fprintf(f,"%s:\n", node->name);	
+	genCodeNodeBlock(node->block);
 }
 

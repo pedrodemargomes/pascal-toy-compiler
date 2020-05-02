@@ -27,13 +27,17 @@ char *binName;
 	struct NodeIf *if_;
 	struct NodeWhile *while_;
 	struct NodeRead *read;
+	struct Parameter *param;
+	struct NodeSubroutine *subroutine;
+	struct ExpressionList *expressionList;
+	struct NodeSubroutineCall *subroutineCall;
 }
 
 %token PROGRAM ABRE_PARENTESES FECHA_PARENTESES VIRGULA PONTO_E_VIRGULA  DOIS_PONTOS  
 %token PONTO T_BEGIN T_END VAR ATRIBUICAO T_IF  T_LABEL  T_TYPE  T_GOTO T_THEN 
 %token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT T_MOD
 %token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITELN T_READ
-%token T_IDENT T_NUMERO 
+%token T_IDENT T_NUMERO T_PROCEDURE
 
 
 %type <number> numero
@@ -51,6 +55,10 @@ char *binName;
 %type <if_> comando_condicional
 %type <while_> comando_repetitivo
 %type <read> le
+%type <param> parametros_formais lista_secao_de_parametros_formais secao_de_parametros_formais secao_de_parametros_formais_passagem_valor secao_de_parametros_formais_passagem_referencia lista_id_params_valor lista_id_params_referencia 
+%type <subroutine> parte_declara_sub_rotinas declara_procedimento declara_funcao
+%type <expressionList> list_arguments
+%type <subroutineCall> subroutine_call
 
 %nonassoc IFX
 %nonassoc T_ELSE
@@ -70,23 +78,166 @@ programa:
 ;
 
 bloco:
-	parte_declara_rotulos parte_declara_vars comando_composto
+	parte_declara_vars parte_declara_sub_rotinas comando_composto
 	{
 		struct NodeBlock *block = malloc(sizeof(struct NodeBlock));
 		INIT_NODE_BLOCK(block);
-		block->intVars = $2;
+		block->intVars = $1;
+		block->subroutine = $2;
 		block->stmt = $3;
 		$$ = block;
 	}
 ;
 
-parte_declara_rotulos: 
-	T_LABEL lista_rotulos PONTO_E_VIRGULA |
+parte_declara_sub_rotinas:
+	parte_declara_sub_rotinas declara_procedimento
+	{
+		if($1 == NULL) {
+			$$ = $2;
+		} else {
+			enqueueSubroutine($$, $2);
+		}
+	} |
+	parte_declara_sub_rotinas declara_funcao
+	{
+		if($1 == NULL) {
+			$$ = $2;
+		} else {
+			enqueueSubroutine($$, $2);
+		}
+	} |
+	{
+		$$ = NULL;
+	}
 ;
 
-lista_rotulos: 
-	lista_rotulos VIRGULA T_NUMERO |
-	T_NUMERO
+declara_funcao:
+;
+
+declara_procedimento:
+	T_PROCEDURE ident parametros_formais PONTO_E_VIRGULA bloco PONTO_E_VIRGULA
+	{
+		struct NodeSubroutine *procedure = malloc(sizeof(struct NodeSubroutine));
+		INIT_SUBROUTINE(procedure);
+		procedure->name = $2;
+		procedure->params = $3;
+		procedure->block = $5;
+		procedure->returnType = NULL;
+		$$ = procedure;
+	} 
+;
+
+parametros_formais:
+	ABRE_PARENTESES lista_secao_de_parametros_formais FECHA_PARENTESES
+	{
+		$$ = $2;
+	} |
+	{
+		$$ = NULL;
+	}
+;
+
+lista_secao_de_parametros_formais:
+	lista_secao_de_parametros_formais PONTO_E_VIRGULA secao_de_parametros_formais
+	{
+		struct Parameter *p = $1;
+		while(p->next)
+			p = p->next;
+		p->next = $3;
+	} |
+	secao_de_parametros_formais
+	{
+		$$ = $1;
+	}
+;
+
+secao_de_parametros_formais:
+	secao_de_parametros_formais_passagem_valor
+	{
+		$$ = $1;
+	} |
+	secao_de_parametros_formais_passagem_referencia
+	{
+		$$ = $1;
+	}
+;
+
+secao_de_parametros_formais_passagem_valor:
+	lista_id_params_valor DOIS_PONTOS ident
+	{
+		enum VarType t;
+		if(strcmp($3, "integer") == 0) {
+			t = INTEGER;
+		} else {
+			printf("ERROR: Parameter type not recognized\n");
+			exit(-1);
+		}
+		struct Parameter *head = $1;
+		struct Parameter *p = head;
+		while(p) {	
+			p->varType = t;
+			p = p->next;
+		}
+		$$ = head;
+	}
+;
+
+secao_de_parametros_formais_passagem_referencia:
+	VAR lista_id_params_referencia DOIS_PONTOS ident
+	{
+		enum VarType t;
+		if(strcmp($4, "integer") == 0) {
+			t = INTEGER;
+		} else {
+			printf("ERROR: Parameter type not recognized\n");
+			exit(-1);
+		}
+		struct Parameter *head = $2;
+		struct Parameter *p = head;
+		while(p) {	
+			p->varType = t;
+			p = p->next;
+		}
+		$$ = head;
+	}
+;
+
+lista_id_params_valor:
+	lista_id_params_valor VIRGULA ident
+	{
+		struct Parameter *param = malloc(sizeof(struct Parameter));
+		INIT_PARAM(param);
+		param->name = $3;
+		param->paramType = VAL;
+		enqueueParameter($1, param);
+	} |
+	ident
+	{
+		struct Parameter *param = malloc(sizeof(struct Parameter));
+		INIT_PARAM(param);
+		param->name = $1;
+		param->paramType = VAL;
+		$$ = param;
+	}
+;
+
+lista_id_params_referencia:
+	lista_id_params_referencia VIRGULA ident
+	{
+		struct Parameter *param = malloc(sizeof(struct Parameter));
+		INIT_PARAM(param);
+		param->name = $3;
+		param->paramType = REF;
+		enqueueParameter($1, param);
+	} |
+	ident
+	{
+		struct Parameter *param = malloc(sizeof(struct Parameter));
+		INIT_PARAM(param);
+		param->name = $1;
+		param->paramType = REF;
+		$$ = param;
+	}
 ;
 
 parte_declara_vars: 
@@ -356,7 +507,8 @@ le:
 ;
 
 lista_leitura:
-	lista_leitura VIRGULA ident {
+	lista_leitura VIRGULA ident
+	{
 		struct Variable *var = malloc(sizeof(struct Variable));
 		var->name = $3;
 		enqueueVariable($1, var);
@@ -367,6 +519,42 @@ lista_leitura:
 		var->name = $1;
 		var->next = NULL;
 		$$ = var;
+	}
+;
+
+list_arguments:
+	list_arguments VIRGULA expressao
+	{
+		struct ExpressionList *arg = malloc(sizeof(struct ExpressionList));
+		arg->expr = $3;
+		enqueueExpressionList($1, arg);
+	} |
+	expressao
+	{
+		struct ExpressionList *arg = malloc(sizeof(struct ExpressionList));
+		arg->expr = $1;
+		arg->next = NULL;
+		$$ = arg;
+
+	}
+;
+
+subroutine_call:
+	ident ABRE_PARENTESES list_arguments FECHA_PARENTESES
+	{
+		struct NodeSubroutineCall *subroutineCall = malloc(sizeof(struct NodeSubroutineCall));
+		INIT_SUBROUTINE_CALL(subroutineCall);
+		subroutineCall->name = $1;
+		subroutineCall->args = $3;
+		$$ = subroutineCall;
+	} |
+	ident
+	{
+		struct NodeSubroutineCall *subroutineCall = malloc(sizeof(struct NodeSubroutineCall));
+		INIT_SUBROUTINE_CALL(subroutineCall);
+		subroutineCall->name = $1;
+		subroutineCall->args = NULL;
+		$$ = subroutineCall;
 	}
 ;
 
@@ -425,6 +613,14 @@ comando:
 		INIT_NODE_STMT(stmt);
 		stmt->read = $1;
 		$$ = stmt;
+	} |
+	subroutine_call
+	{
+		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
+		INIT_NODE_STMT(stmt);
+		stmt->subroutineCall = $1;
+		$$ = stmt;
+
 	}
 ;
 
@@ -456,10 +652,6 @@ numero:
 
 %%
 
-void printAST() {
-
-}
-
 
 int main(int argc, char **argv) {
 	#ifdef DEBUG
@@ -490,7 +682,7 @@ int main(int argc, char **argv) {
 
 	printf("\n\n ---- AST ---- \n\n");
 	printNodeRoot(root);
-	printNodeBlock(root->pgrmBlock);
+	printf("\n\n ------------- \n\n");
 
 	genCodeNodeRoot(root);	
 
