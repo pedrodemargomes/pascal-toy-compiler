@@ -142,6 +142,11 @@ mod {
 	return T_MOD;
 }
 
+procedure {
+	IMPRIME("procedure ");
+	return T_PROCEDURE;
+}
+
 \+ {
 	IMPRIME("sum ");
 	return T_SUM;
