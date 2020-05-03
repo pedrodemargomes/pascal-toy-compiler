@@ -178,7 +178,7 @@ void printNodeSubroutineCall(struct NodeSubroutineCall *node);
 
 void genCodeNodeRoot(struct NodeRoot *node);
 
-void genCodeNodeBlock(struct NodeBlock *node);
+void genCodeNodeBlock(struct NodeBlock *node, char *name);
 
 void genCodeNodeStmt(struct NodeStatemet *node);
 
