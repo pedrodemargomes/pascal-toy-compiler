@@ -406,22 +406,35 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	fprintf(f,"\textern  scanf\n");
 	
 	fprintf(f,"\tsection .text\n");
-	fprintf(f,"main:\n");
 	
-	genCodeNodeBlock(node->pgrmBlock);
+	genCodeNodeBlock(node->pgrmBlock, "main");
 	
-	// EXECUTE SYSCALL
-	// fprintf(f,"\tmov rax, 60\n");
-	// fprintf(f,"\txor rdi, rdi\n");
-	// fprintf(f,"\tsyscall\n");
-
 	fprintf(f,"\tsection .rodata\n");
 	fprintf(f,"formatNumPrintf:\tdb '%%ld', 10, 0\n");
 	fprintf(f,"formatNumScanf:\tdb '%%ld', 0\n");
 }
 
-void genCodeNodeBlock(struct NodeBlock *node) {
-	// CREATE NEW STACK FRAME
+void genCodeNodeBlock(struct NodeBlock *node, char *name) {	
+	struct NodeSubroutine *subroutine = node->subroutine;
+	int numSubroutines = 0;
+	while(subroutine) {
+		struct GenCodeSubroutine *genCodeSubroutine = malloc(sizeof(struct GenCodeSubroutine));
+		INIT_GENSUBROUTINE(genCodeSubroutine);
+		genCodeSubroutine->name = subroutine->name;
+		genCodeSubroutine->returnType = subroutine->returnType;
+		genCodeSubroutine->params = subroutine->params;	
+		
+		pushGenCodeSubroutine(genCodeSubroutine);
+		genCodeNodeSubroutine(subroutine);
+
+		subroutine = subroutine->next;
+		numSubroutines++;
+	}
+
+
+	fprintf(f,"%s:\n", name);	
+	
+	 // CREATE NEW STACK FRAME
 	fprintf(f,"\tpush rbp\n");
 	fprintf(f,"\tmov rbp, rsp\n");
 	
@@ -444,19 +457,8 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 			var = var->next;
 		}
 	}
-	
-	struct NodeSubroutine *subroutine = node->subroutine;
-	while(subroutine) {
-		struct GenCodeSubroutine *genCodeSubroutine = malloc(sizeof(struct GenCodeSubroutine));
-		INIT_GENSUBROUTINE(genCodeSubroutine);
-		genCodeSubroutine->name = subroutine->name;
-		genCodeSubroutine->returnType = subroutine->returnType;
-		genCodeSubroutine->params = subroutine->params;	
-		pushGenCodeSubroutine(genCodeSubroutine);
-		
-		subroutine = subroutine->next;
-	}
-	
+
+
 	if(node->stmt) {
 		struct NodeStatemet *stmt = node->stmt;
 		while(stmt) {
@@ -469,14 +471,6 @@ void genCodeNodeBlock(struct NodeBlock *node) {
 	fprintf(f,"\tpop rbp\n");
 	fprintf(f,"\tret\n");
 	
-	subroutine = node->subroutine;
-	int numSubroutines = 0;
-	while(subroutine) {
-		genCodeNodeSubroutine(subroutine);
-		subroutine = subroutine->next;
-		numSubroutines++;
-	}
-
 	// TODO: Pop subroutines declared in this block
 	for(int i = 0;i < numSubroutines; i++)
 		popGenCodeSubroutine();
@@ -667,7 +661,6 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node) {
 }
 
 void genCodeNodeSubroutine(struct NodeSubroutine *node) {
-	fprintf(f,"%s:\n", node->name);	
-	genCodeNodeBlock(node->block);
+	genCodeNodeBlock(node->block, node->name);
 }
 
