@@ -178,25 +178,25 @@ void printNodeSubroutineCall(struct NodeSubroutineCall *node);
 
 void genCodeNodeRoot(struct NodeRoot *node);
 
-void genCodeNodeBlock(struct NodeBlock *node, char *name);
+void genCodeNodeBlock(struct NodeBlock *node, char *name, int level);
 
-void genCodeNodeStmt(struct NodeStatemet *node);
+void genCodeNodeStmt(struct NodeStatemet *node, int level);
 
-void genCodeNodeExpression(struct NodeExpression *node);
+void genCodeNodeExpression(struct NodeExpression *node, int level);
 
-void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node);
+void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node, int level);
 
-void genCodeNodeTermo(struct NodeTermo *node);
+void genCodeNodeTermo(struct NodeTermo *node, int level);
 
-void genCodeNodeTerminal(struct NodeTerminal *node);
+void genCodeNodeTerminal(struct NodeTerminal *node, int level);
 
-void genCodeNodeIf(struct NodeIf *node);
+void genCodeNodeIf(struct NodeIf *node, int level);
 
-void genCodeNodeWhile(struct NodeWhile *node);
+void genCodeNodeWhile(struct NodeWhile *node, int level);
 
-void genCodeNodeRead(struct NodeRead *node);
+void genCodeNodeRead(struct NodeRead *node, int level);
 
-void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node);
+void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level);
 
-void genCodeNodeSubroutine(struct NodeSubroutine *node);
+void genCodeNodeSubroutine(struct NodeSubroutine *node, int level);
 

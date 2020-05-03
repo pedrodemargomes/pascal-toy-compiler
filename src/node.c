@@ -407,14 +407,42 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	
 	fprintf(f,"\tsection .text\n");
 	
-	genCodeNodeBlock(node->pgrmBlock, "main");
+	genCodeNodeBlock(node->pgrmBlock, "main", 0);
 	
 	fprintf(f,"\tsection .rodata\n");
 	fprintf(f,"formatNumPrintf:\tdb '%%ld', 10, 0\n");
 	fprintf(f,"formatNumScanf:\tdb '%%ld', 0\n");
 }
 
-void genCodeNodeBlock(struct NodeBlock *node, char *name) {	
+void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {	
+
+	int numVars = 0;
+	if(level != 0) {
+		struct GenCodeVariable *genCodeVar = malloc(sizeof(struct GenCodeVariable));
+		INIT_GENVAR(genCodeVar);
+		genCodeVar->name = ""; // Just a stub
+		genCodeVar->level = level;
+		pushGenCodeVariable(genCodeVar);
+	
+		numVars++;
+	}
+
+	if(node->intVars) {
+		struct Variable *var = node->intVars->var;
+		struct GenCodeVariable *genCodeVar;
+		while(var) {
+			genCodeVar = malloc(sizeof(struct GenCodeVariable));
+			INIT_GENVAR(genCodeVar);
+			genCodeVar->name = var->name;
+			genCodeVar->level = level;
+			pushGenCodeVariable(genCodeVar);
+
+			var = var->next;
+			numVars++;
+		}
+	}	
+	
+	
 	struct NodeSubroutine *subroutine = node->subroutine;
 	int numSubroutines = 0;
 	while(subroutine) {
@@ -425,30 +453,26 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name) {
 		genCodeSubroutine->params = subroutine->params;	
 		
 		pushGenCodeSubroutine(genCodeSubroutine);
-		genCodeNodeSubroutine(subroutine);
+		genCodeNodeSubroutine(subroutine, level+1);
 
 		subroutine = subroutine->next;
 		numSubroutines++;
 	}
 
-
 	fprintf(f,"%s:\n", name);	
 	
-	 // CREATE NEW STACK FRAME
+	// CREATE NEW STACK FRAME
 	fprintf(f,"\tpush rbp\n");
 	fprintf(f,"\tmov rbp, rsp\n");
-	
+
+	if(level != 0) {	
+		fprintf(f,"\tpush rax\n"); // Just for 16 byte aligment
+		fprintf(f,"\tpush rax\n"); // PUSH EBP FROM LAST FRAME
+	}
+
 	if(node->intVars) {
 		struct Variable *var = node->intVars->var;
-		struct GenCodeVariable *genCodeVar;
 		while(var) {
-			genCodeVar = malloc(sizeof(struct GenCodeVariable));
-			INIT_GENVAR(genCodeVar);
-			genCodeVar->name = var->name;
-			genCodeVar->level = 0;
-			
-			pushGenCodeVariable(genCodeVar);
-
 			fprintf(f,"\tmov rax, %d\n", -1);
 			fprintf(f,"\tpush rax\n");
 			fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
@@ -458,11 +482,10 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name) {
 		}
 	}
 
-
 	if(node->stmt) {
 		struct NodeStatemet *stmt = node->stmt;
 		while(stmt) {
-			genCodeNodeStmt(stmt);
+			genCodeNodeStmt(stmt, level);
 			stmt = stmt->next;
 		}
 	}
@@ -471,22 +494,32 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name) {
 	fprintf(f,"\tpop rbp\n");
 	fprintf(f,"\tret\n");
 	
-	// TODO: Pop subroutines declared in this block
+	for(int i = 0;i < numVars; i++)
+		popGenCodeVariable();
+
 	for(int i = 0;i < numSubroutines; i++)
 		popGenCodeSubroutine();
 }
 
-void genCodeAsign(char *name, struct NodeExpression *value) {
+void genCodeAsign(char *name, struct NodeExpression *value, int level) {
 	// Generate expression asm and save result in rax register
-	genCodeNodeExpression(value);
+	genCodeNodeExpression(value, level);
 
 	struct GenCodeVariable *var = getVariable(name);
 
-	fprintf(f,"\tmov [rbp%+d], rax\n", var->offset);
+	if(level != var->level) {
+		fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+		for(int i = 1; i < level-var->level; i++)
+			fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+		fprintf(f,"\tmov [rbx%+d], rax\n", var->offset);
+	} else {
+		fprintf(f,"\tmov [rbp%+d], rax\n", var->offset);
+	}
 }
 
-void genCodeWrite(struct NodeWrite *node) {
-	genCodeNodeExpression(node->expr);
+void genCodeWrite(struct NodeWrite *node, int level) {
+	genCodeNodeExpression(node->expr, level);
 		
 	fprintf(f,"\tmov rdi, formatNumPrintf\n");
 	fprintf(f,"\tmov rsi, rax\n");
@@ -494,36 +527,45 @@ void genCodeWrite(struct NodeWrite *node) {
 	fprintf(f,"\tcall printf wrt ..plt\n");
 }
 
-void genCodeNodeStmt(struct NodeStatemet *node) {
+void genCodeNodeStmt(struct NodeStatemet *node, int level) {
 	if(node->asign)
-		genCodeAsign(node->asign->var->name, node->asign->value);
+		genCodeAsign(node->asign->var->name, node->asign->value, level);
 	else if(node->write)
-		genCodeWrite(node->write);
+		genCodeWrite(node->write, level);
 	else if(node->if_)
-		genCodeNodeIf(node->if_);
+		genCodeNodeIf(node->if_, level);
 	else if(node->while_)
-		genCodeNodeWhile(node->while_);
+		genCodeNodeWhile(node->while_, level);
 	else if(node->read)
-		genCodeNodeRead(node->read);
+		genCodeNodeRead(node->read, level);
 	else if(node->subroutineCall)
-		genCodeNodeSubroutineCall(node->subroutineCall);
+		genCodeNodeSubroutineCall(node->subroutineCall, level);
 }
 
-void genCodeNodeTerminal(struct NodeTerminal *node) {
+void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
 	if(node->expr != NULL) {
-		genCodeNodeExpression(node->expr);
+		genCodeNodeExpression(node->expr, level);
 	} else if(node->variable != NULL) {
 		struct GenCodeVariable *var = getVariable(node->variable);
-		fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
+	
+		if(level != var->level) {
+			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+			for(int i = 1; i < level-var->level; i++)
+				fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+			fprintf(f,"\tmov rax, [rbx%+d]\n", var->offset);
+		} else {
+			fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
+		}		
 	} else
 		fprintf(f,"\tmov rax, %d\n", node->number);
 }
 
-void genCodeNodeTermo(struct NodeTermo *node) {
+void genCodeNodeTermo(struct NodeTermo *node, int level) {
 	if(node->termo) {
-		genCodeNodeTermo(node->termo);
+		genCodeNodeTermo(node->termo, level);
 		fprintf(f,"\tpush rax\n");
-		genCodeNodeTerminal(node->terminal);
+		genCodeNodeTerminal(node->terminal, level);
 		fprintf(f,"\tpop rcx\n");
 		if(node->operation == MULT)
 			fprintf(f,"\tmul rcx\n");
@@ -542,14 +584,14 @@ void genCodeNodeTermo(struct NodeTermo *node) {
 			fprintf(f,"\tmov rax, rdx\n");
 		}
 	} else
-		genCodeNodeTerminal(node->terminal);
+		genCodeNodeTerminal(node->terminal, level);
 }
 
-void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node) {
+void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node, int level) {
 	if(node->simpleExpr) {
-		genCodeNodeSimpleExpression(node->simpleExpr);
+		genCodeNodeSimpleExpression(node->simpleExpr, level);
 		fprintf(f,"\tpush rax\n");
-		genCodeNodeTermo(node->termo);
+		genCodeNodeTermo(node->termo, level);
 		fprintf(f,"\tpop rcx\n");
 		if(node->operation == SUM)
 			fprintf(f,"\tadd rax, rcx\n");
@@ -558,14 +600,14 @@ void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node) {
 			fprintf(f,"\tmov rax, rcx\n");
 		}
 	} else
-		genCodeNodeTermo(node->termo);
+		genCodeNodeTermo(node->termo, level);
 }
 
-void genCodeNodeExpression(struct NodeExpression *node) {
+void genCodeNodeExpression(struct NodeExpression *node, int level) {
     if(node->expr) {
-		genCodeNodeExpression(node->expr);
+		genCodeNodeExpression(node->expr, level);
 		fprintf(f,"\tpush rax\n");
-		genCodeNodeSimpleExpression(node->simpleExpr);
+		genCodeNodeSimpleExpression(node->simpleExpr, level);
 		fprintf(f,"\tpop rcx\n");
 	    if(node->operation == EQU) {
             fprintf(f,"\tcmp rcx, rax\n");
@@ -593,17 +635,17 @@ void genCodeNodeExpression(struct NodeExpression *node) {
             fprintf(f,"\tmovsx rax, al\n");
         }
 	} else
-		genCodeNodeSimpleExpression(node->simpleExpr);
+		genCodeNodeSimpleExpression(node->simpleExpr, level);
 }
 
-void genCodeNodeIf(struct NodeIf *node) {
-	genCodeNodeExpression(node->cond);
+void genCodeNodeIf(struct NodeIf *node, int level) {
+	genCodeNodeExpression(node->cond, level);
 	char *ifLabel = getIfElseLabel(); 
 	fprintf(f,"\tcmp rax, 0\n"); // Compare to zero(false)
 	fprintf(f,"\tje %s\n", ifLabel);
 	struct NodeStatemet *stmt = node->ifBlock;
 	while(stmt) {
-		genCodeNodeStmt(stmt);
+		genCodeNodeStmt(stmt, level);
 		stmt = stmt->next;
 	}
 	if(node->elseBlock) {
@@ -612,7 +654,7 @@ void genCodeNodeIf(struct NodeIf *node) {
 		fprintf(f,"%s:\n", ifLabel);
 		struct NodeStatemet *stmt = node->elseBlock;
 		while(stmt) {
-			genCodeNodeStmt(stmt);
+			genCodeNodeStmt(stmt, level);
 			stmt = stmt->next;
 		}
 		fprintf(f,"%s:\n", elseLabel);
@@ -623,16 +665,16 @@ void genCodeNodeIf(struct NodeIf *node) {
 	free(ifLabel);
 }
 
-void genCodeNodeWhile(struct NodeWhile *node) {
+void genCodeNodeWhile(struct NodeWhile *node, int level) {
 	char *whileLabelBegin = getWhileLabel();
 	char *whileLabelEnd = getWhileLabel();
 	fprintf(f,"%s:\n", whileLabelBegin);
-	genCodeNodeExpression(node->cond);
+	genCodeNodeExpression(node->cond, level);
 	fprintf(f,"\tcmp rax, 0\n"); // Compare to zero(false)
 	fprintf(f,"\tje %s\n", whileLabelEnd);
 	struct NodeStatemet *stmt = node->loopBlock;
 	while(stmt) {
-		genCodeNodeStmt(stmt);
+		genCodeNodeStmt(stmt, level);
 		stmt = stmt->next;
 	}
 	fprintf(f,"\tjmp %s\n", whileLabelBegin);
@@ -641,7 +683,7 @@ void genCodeNodeWhile(struct NodeWhile *node) {
 	free(whileLabelEnd);
 }
 
-void genCodeNodeRead(struct NodeRead *node) {
+void genCodeNodeRead(struct NodeRead *node, int level) {
 	struct Variable *var = node->var;
 	while(var) {
 		struct GenCodeVariable *genVar = getVariable(var->name);
@@ -655,12 +697,13 @@ void genCodeNodeRead(struct NodeRead *node) {
 	}
 }
 
-void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node) {
+void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 	struct GenCodeSubroutine *subroutine = getSubroutine(node->name);
+	fprintf(f,"\tmov rax, rbp\n");
 	fprintf(f,"\tcall %s\n", subroutine->name);
 }
 
-void genCodeNodeSubroutine(struct NodeSubroutine *node) {
-	genCodeNodeBlock(node->block, node->name);
+void genCodeNodeSubroutine(struct NodeSubroutine *node, int level) {
+	genCodeNodeBlock(node->block, node->name, level);
 }
 
