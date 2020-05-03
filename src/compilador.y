@@ -119,7 +119,9 @@ declara_procedimento:
 	{
 		struct NodeSubroutine *procedure = malloc(sizeof(struct NodeSubroutine));
 		INIT_SUBROUTINE(procedure);
-		procedure->name = $2;
+		char *procName = malloc(strlen($2)+5);
+		sprintf(procName, "subr%s", $2);
+		procedure->name = procName;
 		procedure->params = $3;
 		procedure->block = $5;
 		procedure->returnType = NULL;
@@ -544,7 +546,9 @@ subroutine_call:
 	{
 		struct NodeSubroutineCall *subroutineCall = malloc(sizeof(struct NodeSubroutineCall));
 		INIT_SUBROUTINE_CALL(subroutineCall);
-		subroutineCall->name = $1;
+		char *procName = malloc(strlen($1)+5);
+		sprintf(procName, "subr%s", $1);
+		subroutineCall->name = procName;
 		subroutineCall->args = $3;
 		$$ = subroutineCall;
 	} |
@@ -552,7 +556,9 @@ subroutine_call:
 	{
 		struct NodeSubroutineCall *subroutineCall = malloc(sizeof(struct NodeSubroutineCall));
 		INIT_SUBROUTINE_CALL(subroutineCall);
-		subroutineCall->name = $1;
+		char *procName = malloc(strlen($1)+5);
+		sprintf(procName, "subr%s", $1);
+		subroutineCall->name = procName;
 		subroutineCall->args = NULL;
 		$$ = subroutineCall;
 	}
