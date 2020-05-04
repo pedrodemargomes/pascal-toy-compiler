@@ -6,11 +6,11 @@ begin
 	while count < 100 do 
 	begin
 		c := 2;
-		while p mod c do
+		while p mod c > 0 do
 		begin
 			c := c + 1;
 		end;
-		if p - c then
+		if p - c > 0 then
 		begin
 			c := 8787;	
 		end

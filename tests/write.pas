@@ -1,9 +1,7 @@
 program write(input, output);
-var a, b : integer;
+var a : integer;
 begin
-	a := 42;
-	b := 43;
+	a := 43;
 	writeln(a);
-	writeln(b);
 end.
 
