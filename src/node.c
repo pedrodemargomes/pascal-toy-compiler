@@ -27,6 +27,7 @@ int enqueueExpressionList(struct ExpressionList *head, struct ExpressionList *no
 		head = head->next;
 
 	node->next = NULL;
+	node->prev = head;
 	head->next = node;
 
 	return 0;
@@ -63,6 +64,7 @@ int enqueueParameter(struct Parameter *head, struct Parameter *node) {
 		head = head->next;
 
 	node->next = NULL;
+	node->prev = head;
 	head->next = node;
 
 	return 0;
@@ -299,6 +301,7 @@ struct GenCodeVariable {
 	char *name;
 	int offset;
 	int level;
+	enum ParamType paramType;
 	struct GenCodeVariable *prev;
 };
 
@@ -369,7 +372,7 @@ struct GenCodeVariable *getVariable(char *name) {
 	exit(-1);
 }
 
-void pushGenCodeVariable(struct GenCodeVariable *node) {
+void pushGenCodeVariable(struct GenCodeVariable *node, int paramOffset) {
 	struct GenCodeVariable *head = genCodeVarHead;
 	if(!head) {
 		genCodeVarHead = node;
@@ -387,8 +390,11 @@ void pushGenCodeVariable(struct GenCodeVariable *node) {
 		offset -= 16;
 		head = head->prev;
 	}
-	
-	node->offset = offset;
+
+	if(paramOffset)
+		node->offset = paramOffset;
+	else	
+		node->offset = offset;
 	node->prev = genCodeVarHead;
 	genCodeVarHead = node;
 }
@@ -415,14 +421,13 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 }
 
 void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {	
-
 	int numVars = 0;
 	if(level != 0) {
 		struct GenCodeVariable *genCodeVar = malloc(sizeof(struct GenCodeVariable));
 		INIT_GENVAR(genCodeVar);
 		genCodeVar->name = ""; // Just a stub
-		genCodeVar->level = level;
-		pushGenCodeVariable(genCodeVar);
+		genCodeVar->level = level; 
+		pushGenCodeVariable(genCodeVar, 0);
 	
 		numVars++;
 	}
@@ -435,14 +440,14 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {
 			INIT_GENVAR(genCodeVar);
 			genCodeVar->name = var->name;
 			genCodeVar->level = level;
-			pushGenCodeVariable(genCodeVar);
+			genCodeVar->paramType = VAL; 
+			pushGenCodeVariable(genCodeVar, 0);
 
 			var = var->next;
 			numVars++;
 		}
 	}	
-	
-	
+		
 	struct NodeSubroutine *subroutine = node->subroutine;
 	int numSubroutines = 0;
 	while(subroutine) {
@@ -474,7 +479,7 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {
 		struct Variable *var = node->intVars->var;
 		while(var) {
 			fprintf(f,"\tmov rax, %d\n", -1);
-			fprintf(f,"\tpush rax\n");
+			fprintf(f,"\tpush rax\n"); // Just for 16 byte aligment
 			fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
 			fprintf(f,"\tpush rax\n");
 
@@ -687,8 +692,17 @@ void genCodeNodeRead(struct NodeRead *node, int level) {
 	struct Variable *var = node->var;
 	while(var) {
 		struct GenCodeVariable *genVar = getVariable(var->name);
+		
+		if(level != genVar->level) {
+			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+			for(int i = 1; i < level-genVar->level; i++)
+				fprintf(f,"\tmov rbx, [rbx-16]\n");
 
-		fprintf(f,"\tlea rsi, [rbp%+d]\n", genVar->offset);
+			fprintf(f,"\tlea rsi, [rbx%+d]\n", genVar->offset);
+		} else {
+			fprintf(f,"\tlea rsi, [rbp%+d]\n", genVar->offset);
+		}
+		
 		fprintf(f,"\tmov rdi, formatNumScanf\n");
 		fprintf(f,"\txor rax, rax\n");
 		fprintf(f,"\tcall scanf wrt ..plt\n");
@@ -699,11 +713,76 @@ void genCodeNodeRead(struct NodeRead *node, int level) {
 
 void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 	struct GenCodeSubroutine *subroutine = getSubroutine(node->name);
+	struct ExpressionList *firstArg, *lastArg;
+	firstArg = node->args;
+	lastArg = NULL;
+
+	int numArgs = 0;
+	while(firstArg) {
+		lastArg = firstArg;
+		firstArg = firstArg->next;
+		numArgs++;
+	}
+
+	struct Parameter *firstParam, *lastParam;
+	firstParam = subroutine->params;
+	lastParam = NULL;
+	int numParam = 0;
+	while(firstParam) {
+		lastParam = firstParam;
+		firstParam = firstParam->next;
+		numParam++;
+	}
+
+	if(numArgs != numParam) {
+		printf("ERROR: Wrong number of arguments in subroutine (%s)\n", node->name);
+		exit(-1);
+	}
+
+	// Push args in reverse order
+	while(lastArg) {
+		if(lastParam->paramType == VAL) {
+			fprintf(f,"\tmov rax, %d\n", -1);
+			fprintf(f,"\tpush rax\n");
+			genCodeNodeExpression(lastArg->expr, level);
+			fprintf(f,"\tpush rax\n");
+		} else if(lastParam->paramType == REF) {
+			// TODO: Pass by reference
+		} else {
+			printf("ERROR: Parameter type no defined in subroutine (%s)\n", node->name);
+			exit(-1);
+		}
+		
+		lastParam = lastParam->prev;
+		lastArg = lastArg->prev;
+	}
+	
 	fprintf(f,"\tmov rax, rbp\n");
 	fprintf(f,"\tcall %s\n", subroutine->name);
+
+	// Remove parameters from stack
+	fprintf(f,"\tadd rsp, %d\n", numParam*16);	
 }
 
 void genCodeNodeSubroutine(struct NodeSubroutine *node, int level) {
+	int numParam = 0;
+	struct Parameter *param = node->params;
+	struct GenCodeVariable *genCodeVar;
+	while(param) {
+		genCodeVar = malloc(sizeof(struct GenCodeVariable));
+		INIT_GENVAR(genCodeVar);
+		genCodeVar->name = param->name;
+		genCodeVar->level = level;
+		genCodeVar->paramType = VAL; 
+		pushGenCodeVariable(genCodeVar, (numParam+1)*16);
+
+		param = param->next;
+		numParam++;
+	}
+
 	genCodeNodeBlock(node->block, node->name, level);
+
+	for(int i = 0;i < numParam; i++)
+		popGenCodeVariable();
 }
 

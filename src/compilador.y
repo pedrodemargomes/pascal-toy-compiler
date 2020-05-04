@@ -146,6 +146,7 @@ lista_secao_de_parametros_formais:
 		while(p->next)
 			p = p->next;
 		p->next = $3;
+		$3->prev = p;
 	} |
 	secao_de_parametros_formais
 	{
@@ -535,9 +536,8 @@ list_arguments:
 	{
 		struct ExpressionList *arg = malloc(sizeof(struct ExpressionList));
 		arg->expr = $1;
-		arg->next = NULL;
+		arg->next = arg->prev = NULL;
 		$$ = arg;
-
 	}
 ;
 

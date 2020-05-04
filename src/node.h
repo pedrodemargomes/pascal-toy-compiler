@@ -27,12 +27,13 @@ enum VarType{INTEGER, NDEF_VAR_TYPE};
 
 #define INIT_SUBROUTINE_CALL(node) node->name = node->args = NULL
 
-#define INIT_PARAM(node) node->name = node->next = NULL; \
+#define INIT_PARAM(node) node->name = node->next = node->prev = NULL; \
 								node->paramType = NDEF_PARAM_TYPE; \
 								node->varType = NDEF_VAR_TYPE
 
 #define INIT_GENVAR(node) node->name = node->prev = NULL; \
-								node->offset = node->level = -1
+								node->offset = node->level = -1; \
+								node->paramType = NDEF_PARAM_TYPE
 
 #define INIT_GENSUBROUTINE(node) node->name = node->returnType = node->params = node->prev = NULL
 
@@ -50,10 +51,12 @@ struct Parameter {
 	enum ParamType paramType;
 	enum VarType varType;
 	struct Parameter *next;
+	struct Parameter *prev;
 };
 
 struct ExpressionList {
 	struct NodeExpression *expr;
+	struct ExpressionList *prev;
 	struct ExpressionList *next;
 };
 
