@@ -6,6 +6,6 @@
 - [x] If..Else
 - [x] While
 - [ ] Add error messages
-- [ ] Procedure
+- [x] Procedure
 - [ ] Function
 - [ ] Support other variable types besides integer
