@@ -404,6 +404,20 @@ void popGenCodeVariable() {
 	genCodeVarHead = genCodeVarHead->prev;
 }
 
+char *getVarNameFromExpression(struct NodeExpression *expr) {
+	if(expr->expr || expr->simpleExpr->simpleExpr || expr->simpleExpr->termo->termo) {
+		printf("ERROR: Passing expression instead of variable as argument of subroutine\n");
+		exit(-1);
+	}
+	if(expr->simpleExpr->termo->terminal->variable)
+		return expr->simpleExpr->termo->terminal->variable;
+	else {
+		// It should not get here
+		printf("ERROR: Expression in argument does not have a name\n");
+		exit(-1);
+	}	
+}
+
 void genCodeNodeRoot(struct NodeRoot *node) {
 	f = fopen(binName, "w");
 	fprintf(f,"\tdefault rel\n");
@@ -512,14 +526,29 @@ void genCodeAsign(char *name, struct NodeExpression *value, int level) {
 
 	struct GenCodeVariable *var = getVariable(name);
 
-	if(level != var->level) {
-		fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
-		for(int i = 1; i < level-var->level; i++)
-			fprintf(f,"\tmov rbx, [rbx-16]\n");
+	if(var->paramType == REF) {
+		if(level != var->level) {
+			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+			for(int i = 1; i < level-var->level; i++)
+				fprintf(f,"\tmov rbx, [rbx-16]\n");
 
-		fprintf(f,"\tmov [rbx%+d], rax\n", var->offset);
-	} else {
-		fprintf(f,"\tmov [rbp%+d], rax\n", var->offset);
+			fprintf(f,"\tmov rbx, [rbx%+d]\n", var->offset);
+			fprintf(f,"\tmov [rbx], rax\n");
+
+		} else {	
+			fprintf(f,"\tmov rbx, [rbp%+d]\n", var->offset);
+			fprintf(f,"\tmov [rbx], rax\n");
+		}
+	} else if(var->paramType == VAL) {
+		if(level != var->level) {
+			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+			for(int i = 1; i < level-var->level; i++)
+				fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+			fprintf(f,"\tmov [rbx%+d], rax\n", var->offset);
+		} else {
+			fprintf(f,"\tmov [rbp%+d], rax\n", var->offset);
+		}
 	}
 }
 
@@ -552,15 +581,29 @@ void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
 		genCodeNodeExpression(node->expr, level);
 	} else if(node->variable != NULL) {
 		struct GenCodeVariable *var = getVariable(node->variable);
-	
-		if(level != var->level) {
-			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
-			for(int i = 1; i < level-var->level; i++)
-				fprintf(f,"\tmov rbx, [rbx-16]\n");
+		if(var->paramType == REF) {
+			if(level != var->level) {
+				fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+				for(int i = 1; i < level-var->level; i++)
+					fprintf(f,"\tmov rbx, [rbx-16]\n");
 
-			fprintf(f,"\tmov rax, [rbx%+d]\n", var->offset);
-		} else {
-			fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
+				fprintf(f,"\tmov rbx, [rbx%+d]\n", var->offset);
+				fprintf(f,"\tmov rax, [rbx]\n");
+
+			} else {	
+				fprintf(f,"\tmov rbx, [rbp%+d]\n", var->offset);
+				fprintf(f,"\tmov rax, [rbx]\n");
+			}
+		} else if(var->paramType == VAL) {
+			if(level != var->level) {
+				fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+				for(int i = 1; i < level-var->level; i++)
+					fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+				fprintf(f,"\tmov rax, [rbx%+d]\n", var->offset);
+			} else {
+				fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
+			}			
 		}		
 	} else
 		fprintf(f,"\tmov rax, %d\n", node->number);
@@ -692,15 +735,27 @@ void genCodeNodeRead(struct NodeRead *node, int level) {
 	struct Variable *var = node->var;
 	while(var) {
 		struct GenCodeVariable *genVar = getVariable(var->name);
-		
-		if(level != genVar->level) {
-			fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
-			for(int i = 1; i < level-genVar->level; i++)
-				fprintf(f,"\tmov rbx, [rbx-16]\n");
+	
+		if(genVar->paramType == REF) {
+			if(level != genVar->level) {
+				fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+				for(int i = 1; i < level-genVar->level; i++)
+					fprintf(f,"\tmov rbx, [rbx-16]\n");
 
-			fprintf(f,"\tlea rsi, [rbx%+d]\n", genVar->offset);
-		} else {
-			fprintf(f,"\tlea rsi, [rbp%+d]\n", genVar->offset);
+				fprintf(f,"\tmov rsi, [rbx%+d]\n", genVar->offset);
+			} else {
+				fprintf(f,"\tmov rsi, [rbp%+d]\n", genVar->offset);
+			}				
+		} else if(genVar->paramType == VAL) {
+			if(level != genVar->level) {
+				fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+				for(int i = 1; i < level-genVar->level; i++)
+					fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+				fprintf(f,"\tlea rsi, [rbx%+d]\n", genVar->offset);
+			} else {
+				fprintf(f,"\tlea rsi, [rbp%+d]\n", genVar->offset);
+			}			
 		}
 		
 		fprintf(f,"\tmov rdi, formatNumScanf\n");
@@ -747,7 +802,34 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 			genCodeNodeExpression(lastArg->expr, level);
 			fprintf(f,"\tpush rax\n");
 		} else if(lastParam->paramType == REF) {
-			// TODO: Pass by reference
+			fprintf(f,"\tmov rax, %d\n", -1);
+			fprintf(f,"\tpush rax\n");
+
+			char *varName = getVarNameFromExpression(lastArg->expr);
+			struct GenCodeVariable *genVar = getVariable(varName);
+			
+			if(genVar->paramType == REF) {
+				if(level != genVar->level) {
+					fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+					for(int i = 1; i < level-genVar->level; i++)
+						fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+					fprintf(f,"\tmov rax, [rbx%+d]\n", genVar->offset);
+				} else {
+					fprintf(f,"\tmov rax, [rbp%+d]\n", genVar->offset);
+				}				
+			} else if(genVar->paramType == VAL) {
+				if(level != genVar->level) {
+					fprintf(f,"\tmov rbx, [rbp-16]\n"); // Get ebp from last frame
+					for(int i = 1; i < level-genVar->level; i++)
+						fprintf(f,"\tmov rbx, [rbx-16]\n");
+
+					fprintf(f,"\tlea rax, [rbx%+d]\n", genVar->offset);
+				} else {
+					fprintf(f,"\tlea rax, [rbp%+d]\n", genVar->offset);
+				}			
+			}
+			fprintf(f,"\tpush rax\n");
 		} else {
 			printf("ERROR: Parameter type no defined in subroutine (%s)\n", node->name);
 			exit(-1);
@@ -773,7 +855,7 @@ void genCodeNodeSubroutine(struct NodeSubroutine *node, int level) {
 		INIT_GENVAR(genCodeVar);
 		genCodeVar->name = param->name;
 		genCodeVar->level = level;
-		genCodeVar->paramType = VAL; 
+		genCodeVar->paramType = param->paramType; 
 		pushGenCodeVariable(genCodeVar, (numParam+1)*16);
 
 		param = param->next;
