@@ -7,5 +7,5 @@
 - [x] While
 - [ ] Add error messages
 - [x] Procedure
-- [ ] Function
+- [x] Function
 - [ ] Support other variable types besides integer
