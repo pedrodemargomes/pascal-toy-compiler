@@ -37,7 +37,7 @@ char *binName;
 %token PONTO T_BEGIN T_END VAR ATRIBUICAO T_IF  T_LABEL  T_TYPE  T_GOTO T_THEN 
 %token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT T_MOD
 %token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITELN T_READ
-%token T_IDENT T_NUMERO T_PROCEDURE
+%token T_IDENT T_NUMERO T_PROCEDURE T_FUNCTION
 
 
 %type <number> numero
@@ -112,6 +112,23 @@ parte_declara_sub_rotinas:
 ;
 
 declara_funcao:
+	T_FUNCTION ident parametros_formais DOIS_PONTOS ident PONTO_E_VIRGULA bloco PONTO_E_VIRGULA
+	{
+		struct NodeSubroutine *function = malloc(sizeof(struct NodeSubroutine));
+		INIT_SUBROUTINE(function);
+		char *funcName = malloc(strlen($2)+5);
+		sprintf(funcName, "subr%s", $2);
+		function->name = funcName;
+		function->params = $3;
+		function->block = $7;
+		if(strcmp($5, "integer") == 0) {
+			function->returnType = INTEGER;
+		} else {
+			printf("ERROR: Function type not recognized\n");
+			exit(-1);
+		}
+		$$ = function;
+	}
 ;
 
 declara_procedimento:
@@ -124,7 +141,7 @@ declara_procedimento:
 		procedure->name = procName;
 		procedure->params = $3;
 		procedure->block = $5;
-		procedure->returnType = NULL;
+		procedure->returnType = NDEF_VAR_TYPE;
 		$$ = procedure;
 	} 
 ;
@@ -428,6 +445,13 @@ terminal:
 		terminal->variable = $1;
 		$$ = terminal;
 
+	} |
+	subroutine_call
+	{
+		struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
+		INIT_TERMINAL(terminal);
+		terminal->funcCall = $1;
+		$$ = terminal;
 	} |
 	ABRE_PARENTESES expressao FECHA_PARENTESES
 	{

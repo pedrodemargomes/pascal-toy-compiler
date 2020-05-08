@@ -147,6 +147,11 @@ procedure {
 	return T_PROCEDURE;
 }
 
+function {
+	IMPRIME("function ");
+	return T_FUNCTION;
+}
+
 \+ {
 	IMPRIME("sum ");
 	return T_SUM;

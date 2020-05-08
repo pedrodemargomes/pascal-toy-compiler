@@ -19,11 +19,12 @@ enum VarType{INTEGER, NDEF_VAR_TYPE};
 #define INIT_TERMO(node) node->termo = node->terminal = NULL; \
 								node->operation = NOP
 
-#define INIT_TERMINAL(node) node->expr = node->variable = NULL
+#define INIT_TERMINAL(node) node->expr = node->variable = node->funcCall = NULL
 
 #define INIT_IF(node) node->cond = node->ifBlock = node->elseBlock = NULL
 
-#define INIT_SUBROUTINE(node) node->name = node->returnType = node->params = node->block = node->next = NULL
+#define INIT_SUBROUTINE(node) node->name = node->params = node->block = node->next = NULL; \
+								node->returnType = NDEF_VAR_TYPE
 
 #define INIT_SUBROUTINE_CALL(node) node->name = node->args = NULL
 
@@ -35,7 +36,8 @@ enum VarType{INTEGER, NDEF_VAR_TYPE};
 								node->offset = node->level = -1; \
 								node->paramType = NDEF_PARAM_TYPE
 
-#define INIT_GENSUBROUTINE(node) node->name = node->returnType = node->params = node->prev = NULL
+#define INIT_GENSUBROUTINE(node) node->name = node->params = node->prev = NULL; \
+								node->returnType = NDEF_VAR_TYPE
 
 struct Variable {
 	char *name;
@@ -106,6 +108,7 @@ struct NodeTerminal {
 	int number;
 	char *variable;
 	struct NodeExpression *expr;
+	struct NodeSubroutineCall *funcCall;
 };
 
 struct NodeWhile {
@@ -134,7 +137,7 @@ struct NodeRead {
 
 struct NodeSubroutine {
 	char *name;
-	char *returnType;
+	enum VarType returnType;
 	struct Parameter *params;
 	struct NodeBlock *block;
 	struct NodeSubroutine *next;
@@ -181,7 +184,7 @@ void printNodeSubroutineCall(struct NodeSubroutineCall *node);
 
 void genCodeNodeRoot(struct NodeRoot *node);
 
-void genCodeNodeBlock(struct NodeBlock *node, char *name, int level);
+void genCodeNodeBlock(struct NodeBlock *node, char *name, struct NodeSubroutine *func, int level);
 
 void genCodeNodeStmt(struct NodeStatemet *node, int level);
 

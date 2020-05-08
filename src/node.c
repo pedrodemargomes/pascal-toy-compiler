@@ -190,6 +190,8 @@ void printNodeTerminal(struct NodeTerminal *node) {
 		printf(")");
 	} else if(node->variable != NULL) {
 		printf("%s", node->variable);
+	} else if(node->funcCall != NULL) {
+		printNodeSubroutineCall(node->funcCall);
 	} else
 		printf("%d", node->number);
 }
@@ -270,8 +272,8 @@ void printNodeSubroutineCall(struct NodeSubroutineCall *node) {
 }
 
 void printNodeSubroutine(struct NodeSubroutine *node) {
-	if(node->returnType)	
-		printf("%s Function ", node->returnType);
+	if(node->returnType != NDEF_VAR_TYPE)	
+		printf("%s Function ", node->returnType == INTEGER ? "INTEGER" : "");
 	else
 		printf("Procedure ");
 
@@ -307,7 +309,7 @@ struct GenCodeVariable {
 
 struct GenCodeSubroutine {
 	char *name;
-	char *returnType;
+	enum VarType returnType;
 	struct Parameter *params;
 	struct GenCodeSubroutine *prev;
 };
@@ -427,14 +429,14 @@ void genCodeNodeRoot(struct NodeRoot *node) {
 	
 	fprintf(f,"\tsection .text\n");
 	
-	genCodeNodeBlock(node->pgrmBlock, "main", 0);
+	genCodeNodeBlock(node->pgrmBlock, "main", NULL, 0);
 	
 	fprintf(f,"\tsection .rodata\n");
 	fprintf(f,"formatNumPrintf:\tdb '%%ld', 10, 0\n");
 	fprintf(f,"formatNumScanf:\tdb '%%ld', 0\n");
 }
 
-void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {	
+void genCodeNodeBlock(struct NodeBlock *node, char *name, struct NodeSubroutine *func, int level) {	
 	int numVars = 0;
 	if(level != 0) {
 		struct GenCodeVariable *genCodeVar = malloc(sizeof(struct GenCodeVariable));
@@ -442,6 +444,19 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {
 		genCodeVar->name = ""; // Just a stub
 		genCodeVar->level = level; 
 		pushGenCodeVariable(genCodeVar, 0);
+	
+		numVars++;
+	}
+
+	// Create entry in ST with function name
+	struct GenCodeVariable *funcRetVar;
+	if(func) {
+		funcRetVar = malloc(sizeof(struct GenCodeVariable));
+		INIT_GENVAR(funcRetVar);
+		funcRetVar->name = &func->name[4]; // Get real func name without "subr" at the start
+		funcRetVar->level = level; 
+		funcRetVar->paramType = VAL; 
+		pushGenCodeVariable(funcRetVar, 0);
 	
 		numVars++;
 	}
@@ -489,6 +504,13 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {
 		fprintf(f,"\tpush rax\n"); // PUSH EBP FROM LAST FRAME
 	}
 
+	if(func) {
+		fprintf(f,"\tmov rax, %d\n", -1);
+		fprintf(f,"\tpush rax\n"); // Just for 16 byte aligment
+		fprintf(f,"\tmov rax, %d\n", INIT_VAR_VALUE);
+		fprintf(f,"\tpush rax\n");
+	}
+
 	if(node->intVars) {
 		struct Variable *var = node->intVars->var;
 		while(var) {
@@ -508,6 +530,12 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, int level) {
 			stmt = stmt->next;
 		}
 	}
+
+	// Return function value in rax register
+	if(func) {
+		fprintf(f,"\tmov rax, [rbp%+d]\n", funcRetVar->offset);
+	}
+
 	// RESTORE STACK
 	fprintf(f,"\tmov rsp, rbp\n");
 	fprintf(f,"\tpop rbp\n");
@@ -605,6 +633,8 @@ void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
 				fprintf(f,"\tmov rax, [rbp%+d]\n", var->offset);
 			}			
 		}		
+	} else if(node->funcCall != NULL) {
+		genCodeNodeSubroutineCall(node->funcCall, level);
 	} else
 		fprintf(f,"\tmov rax, %d\n", node->number);
 }
@@ -862,7 +892,11 @@ void genCodeNodeSubroutine(struct NodeSubroutine *node, int level) {
 		numParam++;
 	}
 
-	genCodeNodeBlock(node->block, node->name, level);
+	if(node->returnType == NDEF_VAR_TYPE) {
+		genCodeNodeBlock(node->block, node->name, NULL, level);
+	} else {
+		genCodeNodeBlock(node->block, node->name, node, level);
+	}
 
 	for(int i = 0;i < numParam; i++)
 		popGenCodeVariable();
