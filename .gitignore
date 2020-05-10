@@ -6,7 +6,7 @@ src/lex.yy.c
 src/*.swp
 tests/a.out
 tests/*.o
-tests/*.pas.s
+tests/*.s
 tests/*.swp
 *.swp
 
