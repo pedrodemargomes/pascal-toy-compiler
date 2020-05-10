@@ -77,7 +77,7 @@ int enqueueVariable(struct Variable *head, struct Variable *node) {
 	while(head) {
 		if(strcmp(head->name, node->name) == 0) {
 			printf("ERROR: Variable name (%s) already used\n", node->name);
-			exit(-1);
+			exit(1);
 		}
 		aux = head;
 		head = head->next;
@@ -339,10 +339,10 @@ void pushGenCodeSubroutine(struct GenCodeSubroutine *node) {
 		return ;
 	}
 
-	while(head) {
+	while(head && head->level == node->level) {
 		if(strcmp(head->name, node->name) == 0) {
 			printf("ERROR: Subroutine name (%s) already used\n", node->name);
-			exit(-1);
+			exit(1);
 		}
 		head = head->prev;
 	}
@@ -370,7 +370,7 @@ void pushGenCodeVariable(struct GenCodeVariable *node, int paramOffset) {
 	while(head && head->level == node->level) {
 		if(strcmp(head->name, node->name) == 0) {
 			printf("ERROR: Variable name (%s) already used\n", node->name);
-			exit(-1);
+			exit(1);
 		}
 		offset -= 16;
 		head = head->prev;
@@ -393,14 +393,14 @@ void popGenCodeVariable() {
 char *getVarNameFromExpression(struct NodeExpression *expr) {
 	if(expr->expr || expr->simpleExpr->simpleExpr || expr->simpleExpr->termo->termo) {
 		printf("ERROR: Passing expression instead of variable as argument of subroutine\n");
-		exit(-1);
+		exit(1);
 	}
 	if(expr->simpleExpr->termo->terminal->variable)
 		return expr->simpleExpr->termo->terminal->variable;
 	else {
 		// It should not get here
 		printf("ERROR: Expression in argument does not have a name\n");
-		exit(-1);
+		exit(1);
 	}	
 }
 
@@ -453,7 +453,7 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, struct GenCodeSubrouti
             sprintf(varToSubr, "subr%s", var->name);
             if(getSubroutine(varToSubr) != NULL) {
                 printf("ERROR: Variable name (%s) already used in subroutine\n", var->name);
-	            exit(-1);
+	            exit(1);
             } 
             genCodeVar = malloc(sizeof(struct GenCodeVariable));
 			INIT_GENVAR(genCodeVar);
@@ -472,11 +472,12 @@ void genCodeNodeBlock(struct NodeBlock *node, char *name, struct GenCodeSubrouti
 	while(subroutine) {
 	    if(getVariable(&subroutine->name[4]) != NULL) {
             printf("ERROR: Subroutine name (%s) already used in variable\n", subroutine->name);
-	        exit(-1);
+	        exit(1);
         }
         struct GenCodeSubroutine *genCodeSubroutine = malloc(sizeof(struct GenCodeSubroutine));
 	    INIT_GENSUBROUTINE(genCodeSubroutine);
         genCodeSubroutine->name = subroutine->name;
+        genCodeSubroutine->level = level;
 	    genCodeSubroutine->label = malloc(strlen(subroutine->name)+5); // 3 digit + _ + \0
         sprintf(genCodeSubroutine->label, "_%d%s", level, subroutine->name);
         genCodeSubroutine->returnType = subroutine->returnType;
@@ -551,7 +552,7 @@ void genCodeAsign(char *name, struct NodeExpression *value, int level) {
 	struct GenCodeVariable *var = getVariable(name);
     if(var == NULL) {
         printf("ERROR: Variable (%s) node found\n", name);
-	    exit(-1);
+	    exit(1);
     }
 
 	if(var->paramType == REF) {
@@ -611,7 +612,7 @@ void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
 	    struct GenCodeVariable *var = getVariable(node->variable);
         if(var == NULL) {
             printf("ERROR: Variable (%s) node found\n", node->variable);
-	        exit(-1);
+	        exit(1);
         }
 		if(var->paramType == REF) {
 			if(level != var->level) {
@@ -642,7 +643,7 @@ void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
         struct GenCodeSubroutine *subroutine = getSubroutine(node->funcCall->name);
         if(subroutine->returnType == NDEF_VAR_TYPE) {
             printf("ERROR: %s is not a function\n", subroutine->name);
-            exit(-1);
+            exit(1);
         }
     } else
 		fprintf(f,"\tmov rax, %d\n", node->number);
@@ -776,7 +777,7 @@ void genCodeNodeRead(struct NodeRead *node, int level) {
 	    struct GenCodeVariable *genVar = getVariable(var->name);
         if(var == NULL) {
             printf("ERROR: Variable (%s) node found\n", var->name);
-            exit(-1);
+            exit(1);
         }
 		if(genVar->paramType == REF) {
 			if(level != genVar->level) {
@@ -812,7 +813,7 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 	struct GenCodeSubroutine *subroutine = getSubroutine(node->name);
 	if(subroutine == NULL) {
         printf("ERROR: Subroutine (%s) node found\n", node->name);
-	    exit(-1);
+	    exit(1);
     }
 
     struct ExpressionList *firstArg, *lastArg;
@@ -838,7 +839,7 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 
 	if(numArgs != numParam) {
 		printf("ERROR: Wrong number of arguments in subroutine (%s)\n", node->name);
-		exit(-1);
+		exit(1);
 	}
 
 	// Push args in reverse order
@@ -856,7 +857,7 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 			struct GenCodeVariable *genVar = getVariable(varName);
             if(genVar == NULL) {
                 printf("ERROR: Variable (%s) node found\n", varName);
-                exit(-1);
+                exit(1);
             }
 			
 			if(genVar->paramType == REF) {
@@ -883,7 +884,7 @@ void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level) {
 			fprintf(f,"\tpush rax\n");
 		} else {
 			printf("ERROR: Parameter type no defined in subroutine (%s)\n", node->name);
-			exit(-1);
+			exit(1);
 		}
 		
 		lastParam = lastParam->prev;

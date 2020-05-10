@@ -75,6 +75,7 @@ struct GenCodeVariable {
 struct GenCodeSubroutine {
 	char *name;
 	char *label;
+    int level;
     enum VarType returnType;
 	struct Parameter *params;
 	struct GenCodeSubroutine *prev;
