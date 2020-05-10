@@ -125,7 +125,7 @@ declara_funcao:
 			function->returnType = INTEGER;
 		} else {
 			printf("ERROR: Function type not recognized\n");
-			exit(-1);
+			exit(1);
 		}
 		$$ = function;
 	}
@@ -190,7 +190,7 @@ secao_de_parametros_formais_passagem_valor:
 			t = INTEGER;
 		} else {
 			printf("ERROR: Parameter type not recognized\n");
-			exit(-1);
+			exit(1);
 		}
 		struct Parameter *head = $1;
 		struct Parameter *p = head;
@@ -210,7 +210,7 @@ secao_de_parametros_formais_passagem_referencia:
 			t = INTEGER;
 		} else {
 			printf("ERROR: Parameter type not recognized\n");
-			exit(-1);
+			exit(1);
 		}
 		struct Parameter *head = $2;
 		struct Parameter *p = head;
@@ -279,7 +279,7 @@ declara_var:
 			$$ = vars; 
 		} else {
 			printf("ERROR: Variable type not recognized\n");
-			exit(-1);
+			exit(1);
 		}
 	}
 ;
@@ -657,7 +657,7 @@ ident:
 	{
 		if(strlen($<string>1) > MAX_IDENT_LEN) {
 			printf("ERROR: Ident length > MAX_IDENT_LEN\n");
-			exit(-1);
+			exit(1);
 		}
 		char *ident = malloc((strlen($<string>1)+1)*sizeof(char));
 		strcpy(ident, $<string>1);
@@ -670,7 +670,7 @@ numero:
 	{
 		if(strlen($<string>1) > MAX_IDENT_LEN) {
 			printf("ERROR: Number length > MAX_IDENT_LEN\n");
-			exit(-1);
+			exit(1);
 		}
 		char *num = malloc((strlen($<string>1)+1)*sizeof(char));
 		strcpy(num, $<string>1);
@@ -707,7 +707,7 @@ int main(int argc, char **argv) {
 	yyin = fp;
 	if(yyparse()) {
         printf("ERROR: Syntax error\n");
-        exit(-1);
+        exit(1);
     }
     
 	printf("\n\n ---- AST ---- \n\n");
