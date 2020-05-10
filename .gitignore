@@ -5,6 +5,7 @@ src/compilador
 src/lex.yy.c
 src/*.swp
 tests/a.out
+tests/testAllRes.txt
 tests/*.o
 tests/*.s
 tests/*.swp
