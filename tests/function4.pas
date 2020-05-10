@@ -6,6 +6,12 @@ begin
     func1 := 42;
 end;
 
+function func2 : integer;
+var ff, gg : integer;
 begin
-    writeln(func1());
+    func2 := 13;
+end;
+
+begin
+    writeln(13);
 end.
