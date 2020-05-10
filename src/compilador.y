@@ -142,7 +142,7 @@ declara_procedimento:
 		procedure->params = $3;
 		procedure->block = $5;
 		procedure->returnType = NDEF_VAR_TYPE;
-		$$ = procedure;
+        $$ = procedure;
 	} 
 ;
 
@@ -444,7 +444,6 @@ terminal:
 		INIT_TERMINAL(terminal);
 		terminal->variable = $1;
 		$$ = terminal;
-
 	} |
 	subroutine_call
 	{
@@ -501,8 +500,7 @@ cond_else:
 	{
 		$$ = NULL;
 	}
-; 
-                                   
+;
 
 atribuicaoInteiro:
 	ident ATRIBUICAO expressao
@@ -576,7 +574,7 @@ subroutine_call:
 		subroutineCall->args = $3;
 		$$ = subroutineCall;
 	} |
-	ident
+	ident ABRE_PARENTESES FECHA_PARENTESES
 	{
 		struct NodeSubroutineCall *subroutineCall = malloc(sizeof(struct NodeSubroutineCall));
 		INIT_SUBROUTINE_CALL(subroutineCall);

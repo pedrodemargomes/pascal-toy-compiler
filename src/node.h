@@ -36,7 +36,7 @@ enum VarType{INTEGER, NDEF_VAR_TYPE};
 								node->offset = node->level = -1; \
 								node->paramType = NDEF_PARAM_TYPE
 
-#define INIT_GENSUBROUTINE(node) node->name = node->params = node->prev = NULL; \
+#define INIT_GENSUBROUTINE(node) node->name = node->label = node->params = node->prev = NULL; \
 								node->returnType = NDEF_VAR_TYPE
 
 struct Variable {
@@ -61,6 +61,25 @@ struct ExpressionList {
 	struct ExpressionList *prev;
 	struct ExpressionList *next;
 };
+
+// +++++++ GEN CODE +++++++
+
+struct GenCodeVariable {
+	char *name;
+	int offset;
+	int level;
+	enum ParamType paramType;
+	struct GenCodeVariable *prev;
+};
+
+struct GenCodeSubroutine {
+	char *name;
+	char *label;
+    enum VarType returnType;
+	struct Parameter *params;
+	struct GenCodeSubroutine *prev;
+};
+
 
 // ++++++++ NODES ++++++++++
 
@@ -137,7 +156,7 @@ struct NodeRead {
 
 struct NodeSubroutine {
 	char *name;
-	enum VarType returnType;
+    enum VarType returnType;
 	struct Parameter *params;
 	struct NodeBlock *block;
 	struct NodeSubroutine *next;
@@ -184,7 +203,7 @@ void printNodeSubroutineCall(struct NodeSubroutineCall *node);
 
 void genCodeNodeRoot(struct NodeRoot *node);
 
-void genCodeNodeBlock(struct NodeBlock *node, char *name, struct NodeSubroutine *func, int level);
+void genCodeNodeBlock(struct NodeBlock *node, char *name, struct GenCodeSubroutine *func, int level);
 
 void genCodeNodeStmt(struct NodeStatemet *node, int level);
 
@@ -204,5 +223,5 @@ void genCodeNodeRead(struct NodeRead *node, int level);
 
 void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level);
 
-void genCodeNodeSubroutine(struct NodeSubroutine *node, int level);
+void genCodeNodeSubroutine(struct GenCodeSubroutine *genCodeSubroutine, struct NodeBlock *block, int level);
 
