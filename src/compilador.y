@@ -705,9 +705,11 @@ int main(int argc, char **argv) {
 	}
 
 	yyin = fp;
-	yyparse();
-
-
+	if(yyparse()) {
+        printf("ERROR: Syntax error\n");
+        exit(-1);
+    }
+    
 	printf("\n\n ---- AST ---- \n\n");
 	printNodeRoot(root);
 	printf("\n\n ------------- \n\n");
