@@ -1,5 +1,5 @@
 #define MAX_IDENT_LEN 30
-enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE};
+enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE, AND, OR};
 enum ParamType{VAL, REF, NDEF_PARAM_TYPE};
 enum VarType{INTEGER, NDEF_VAR_TYPE};
 
@@ -19,7 +19,7 @@ enum VarType{INTEGER, NDEF_VAR_TYPE};
 #define INIT_TERMO(node) node->termo = node->terminal = NULL; \
 								node->operation = NOP
 
-#define INIT_TERMINAL(node) node->expr = node->variable = node->funcCall = NULL
+#define INIT_TERMINAL(node) node->expr = node->notExpr = node->variable = node->funcCall = NULL
 
 #define INIT_IF(node) node->cond = node->ifBlock = node->elseBlock = NULL
 
@@ -127,7 +127,8 @@ struct NodeTermo {
 struct NodeTerminal {
 	int number;
 	char *variable;
-	struct NodeExpression *expr;
+    struct NodeTerminal	*notExpr;
+    struct NodeExpression *expr;
 	struct NodeSubroutineCall *funcCall;
 };
 

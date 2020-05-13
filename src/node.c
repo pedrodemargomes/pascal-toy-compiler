@@ -7,16 +7,23 @@
 extern char *binName;
 int ifElseLabelCount = 0;
 int whileLabelCount = 0;
+int exprLabelCount = 0;
 
 char *getIfElseLabel() {
 	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
-	sprintf(label, "ifelse_%d", ifElseLabelCount++);
+	sprintf(label, ".ifelse_%d", ifElseLabelCount++);
 	return label;
 }
 
 char *getWhileLabel() {
 	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
-	sprintf(label, "while_%d", whileLabelCount++);
+	sprintf(label, ".while_%d", whileLabelCount++);
+	return label;
+}
+
+char *getExprLabel() {
+	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
+	sprintf(label, ".expr_%d", exprLabelCount++);
 	return label;
 }
 
@@ -645,6 +652,19 @@ void genCodeNodeTerminal(struct NodeTerminal *node, int level) {
             printf("ERROR: %s is not a function\n", subroutine->name);
             exit(1);
         }
+    } else if(node->notExpr != NULL) {
+        genCodeNodeTerminal(node->notExpr, level);
+        char *l1 = getExprLabel(); 
+        char *l2 = getExprLabel(); 
+        fprintf(f,"\tcmp rax, 0\n");
+        fprintf(f,"\tje %s\n", l1);
+        fprintf(f,"\tmov rax, 0\n");
+        fprintf(f,"\tjmp %s\n", l2);
+        fprintf(f,"%s:\n", l1);
+        fprintf(f,"\tmov rax, 1\n");
+        fprintf(f,"%s:\n", l2);
+        free(l1);
+        free(l2);
     } else
 		fprintf(f,"\tmov rax, %d\n", node->number);
 }
@@ -670,7 +690,21 @@ void genCodeNodeTermo(struct NodeTermo *node, int level) {
 			fprintf(f,"\tcqo\n"); // Extend rax to rdx:rax
 			fprintf(f,"\tidiv rcx\n");
 			fprintf(f,"\tmov rax, rdx\n");
-		}
+		} else if(node->operation == AND) {
+            char *l1 = getExprLabel(); 
+            char *l2 = getExprLabel(); 
+            fprintf(f,"\tcmp rax, 0\n");
+            fprintf(f,"\tje %s\n", l1);
+            fprintf(f,"\tcmp rcx, 0\n");
+            fprintf(f,"\tje %s\n", l1);
+            fprintf(f,"\tmov rax, 1\n");
+            fprintf(f,"\tjmp %s\n", l2);
+            fprintf(f,"%s:\n", l1);
+            fprintf(f,"\tmov rax, 0\n");
+            fprintf(f,"%s:\n", l2);
+            free(l1);
+            free(l2);
+        }
 	} else
 		genCodeNodeTerminal(node->terminal, level);
 }
@@ -686,7 +720,26 @@ void genCodeNodeSimpleExpression(struct NodeSimpleExpression *node, int level) {
 		else if(node->operation == MINUS) {
 			fprintf(f,"\tsub rcx, rax\n");
 			fprintf(f,"\tmov rax, rcx\n");
-		}
+		} else if(node->operation == OR) {   
+            char *l1 = getExprLabel(); 
+            char *l2 = getExprLabel(); 
+            char *l3 = getExprLabel(); 
+            fprintf(f,"\tcmp rax, 0\n");
+            fprintf(f,"\tje %s\n", l1);
+            fprintf(f,"\tmov rax, 1\n");
+            fprintf(f,"\tjmp %s\n", l3);
+            fprintf(f,"%s:\n", l1);
+            fprintf(f,"\tcmp rcx, 0\n");
+            fprintf(f,"\tje %s\n", l2);
+            fprintf(f,"\tmov rax, 1\n");
+            fprintf(f,"\tjmp %s\n", l3);
+            fprintf(f,"%s:\n", l2);
+            fprintf(f,"\tmov rax, 0\n");
+            fprintf(f,"%s:\n", l3);
+            free(l1);
+            free(l2);
+            free(l3);
+        }
 	} else
 		genCodeNodeTermo(node->termo, level);
 }

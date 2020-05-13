@@ -388,8 +388,16 @@ expressaoSimples:
 		simpleExpr->termo = $3;
 		$$ = simpleExpr;
 	} |
-	expressaoSimples T_OR termo |
-	termo
+	expressaoSimples T_OR termo
+	{
+		struct NodeSimpleExpression *simpleExpr = malloc(sizeof(struct NodeSimpleExpression));
+		INIT_SIMPLE_EXPRESSION(simpleExpr);
+		simpleExpr->simpleExpr = $1;
+		simpleExpr->operation = OR;
+		simpleExpr->termo = $3;
+		$$ = simpleExpr;
+	} |
+    termo
 	{
 		struct NodeSimpleExpression *simpleExpr = malloc(sizeof(struct NodeSimpleExpression));	
 		INIT_SIMPLE_EXPRESSION(simpleExpr);
@@ -426,8 +434,15 @@ termo:
 		termo->terminal = $3;
 		$$ = termo;
 	} |
-
-	termo T_AND terminal |
+	termo T_AND terminal
+    {
+        struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));
+		INIT_TERMO(termo);
+		termo->termo = $1;
+		termo->operation = AND;
+		termo->terminal = $3;
+		$$ = termo;
+    } |
 	terminal
 	{
 		struct NodeTermo *termo = malloc(sizeof(struct NodeTermo));	
@@ -459,7 +474,13 @@ terminal:
 		terminal->expr = $2;
 		$$ = terminal;
 	} |
-	T_NOT terminal |
+	T_NOT terminal
+    {
+        struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
+		INIT_TERMINAL(terminal);
+		terminal->notExpr = $2;
+		$$ = terminal; 
+    } |
 	numero
 	{
 		struct NodeTerminal *terminal = malloc(sizeof(struct NodeTerminal));
