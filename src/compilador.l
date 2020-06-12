@@ -82,6 +82,21 @@ type {
 	return T_TYPE;
 }
 
+for {
+	IMPRIME("for ");
+	return T_FOR;
+}
+
+to {
+	IMPRIME("to ");
+	return T_TO;
+}
+
+downto {
+	IMPRIME("downto ");
+	return T_DOWNTO;
+}
+
 goto {
 	IMPRIME("goto ");
 	return T_GOTO;

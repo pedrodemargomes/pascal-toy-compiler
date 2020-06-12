@@ -10,7 +10,6 @@ char *binName;
 
 %}
 
-
 %union {
 	char *string;
 	int number;
@@ -26,18 +25,20 @@ char *binName;
 	struct NodeWrite *write;
 	struct NodeIf *if_;
 	struct NodeWhile *while_;
+	struct NodeFor *for_;
 	struct NodeRead *read;
 	struct Parameter *param;
 	struct NodeSubroutine *subroutine;
 	struct ExpressionList *expressionList;
 	struct NodeSubroutineCall *subroutineCall;
+	enum Direction *direction;
 }
 
 %token PROGRAM ABRE_PARENTESES FECHA_PARENTESES VIRGULA PONTO_E_VIRGULA  DOIS_PONTOS  
 %token PONTO T_BEGIN T_END VAR ATRIBUICAO T_IF  T_LABEL  T_TYPE  T_GOTO T_THEN 
 %token T_ELSE T_WHILE T_DO  T_OR T_AND T_DIV  T_NOT  T_SUM T_MINUS T_MULT T_MOD
 %token T_MENOR T_MENOR_IGUAL T_MAIOR T_MAIOR_IGUAL T_IGUAL T_DIFERENTE T_WRITELN T_READ
-%token T_IDENT T_NUMERO T_PROCEDURE T_FUNCTION
+%token T_IDENT T_NUMERO T_PROCEDURE T_FUNCTION T_FOR T_TO T_DOWNTO
 
 
 %type <number> numero
@@ -53,7 +54,9 @@ char *binName;
 %type <stmt> comando_composto comandos comando cond_else
 %type <write> imprime
 %type <if_> comando_condicional
-%type <while_> comando_repetitivo
+%type <while_> comando_repetitivo_while
+%type <for_> comando_repetitivo_for
+%type <direction> direction_for 
 %type <read> le
 %type <param> parametros_formais lista_secao_de_parametros_formais secao_de_parametros_formais secao_de_parametros_formais_passagem_valor secao_de_parametros_formais_passagem_referencia lista_id_params_valor lista_id_params_referencia 
 %type <subroutine> parte_declara_sub_rotinas declara_procedimento declara_funcao
@@ -490,13 +493,40 @@ terminal:
 	}
 ;
 
-comando_repetitivo: 
+comando_repetitivo_while: 
 	T_WHILE expressao T_DO comando_composto
 	{
 		struct NodeWhile *while_ = malloc(sizeof(struct NodeWhile));
 		while_->cond = $2;
 		while_->loopBlock = $4;
 		$$ = while_;
+	}
+;
+
+comando_repetitivo_for:
+	T_FOR atribuicaoInteiro direction_for expressao T_DO comando_composto
+	{
+		struct NodeFor *for_ = malloc(sizeof(struct NodeFor));
+		for_->varIter = $2;
+		for_->direction = *$3;
+		for_->endCondIter = $4;
+		for_->loopBlock = $6;
+		$$ = for_;
+	}
+;
+
+direction_for:
+	T_TO
+	{
+		enum Direction *d = malloc(sizeof(enum Direction));
+		*d = TO;
+		$$ = d; 
+	} |
+	T_DOWNTO
+	{
+		enum Direction *d = malloc(sizeof(enum Direction));
+		*d = DOWNTO;
+		$$ = d;
 	}
 ;
 
@@ -626,13 +656,20 @@ comandos:
 ;
 
 comando: 
-	comando_repetitivo 
+	comando_repetitivo_while 
 	{
 		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
 		INIT_NODE_STMT(stmt);
 		stmt->while_ = $1;
 		$$ = stmt;
 
+	} |
+	comando_repetitivo_for
+	{
+		struct NodeStatemet *stmt = malloc(sizeof(struct NodeStatemet));
+		INIT_NODE_STMT(stmt);
+		stmt->for_ = $1;
+		$$ = stmt;
 	} |
 	comando_condicional
 	{
@@ -735,7 +772,7 @@ int main(int argc, char **argv) {
 	printNodeRoot(root);
 	printf("\n\n ------------- \n\n");
 
-	genCodeNodeRoot(root);	
+	// genCodeNodeRoot(root);	
 
 
 	return 0;

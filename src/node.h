@@ -2,12 +2,13 @@
 enum Operation{SUM, MINUS, MULT, DIV, MOD, NOP, EQU, NEQU, GT, GE, LT, LE, AND, OR};
 enum ParamType{VAL, REF, NDEF_PARAM_TYPE};
 enum VarType{INTEGER, NDEF_VAR_TYPE};
+enum Direction{DOWNTO, TO};
 
 #define INIT_NODE_ROOT(node) node->pgrmBlock = NULL
 
 #define INIT_NODE_BLOCK(node) node->intVars = node->subroutine = node->stmt = NULL
 
-#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_ = node->write = \
+#define INIT_NODE_STMT(node) node->asign = node->if_ = node->while_= node->for_ = node->write = \
 								 node->read = node->subroutineCall = node->next = NULL
 
 #define INIT_EXPRESSION(node) node->expr = node->simpleExpr = NULL; \
@@ -96,7 +97,10 @@ struct NodeStatemet {
 	struct NodeWrite *write;
 	struct NodeRead *read;
 	struct NodeSubroutineCall *subroutineCall;
-	struct NodeStatemet *next;
+	struct NodeFor *for_;
+    void *stmt;
+    void (*genCode);
+    struct NodeStatemet *next;
 };
 
 struct NodeBlock {
@@ -164,6 +168,13 @@ struct NodeSubroutine {
 	struct NodeSubroutine *next;
 };
 
+struct NodeFor {
+	struct NodeAsignVariable *varIter;
+	enum Direction direction;
+	struct NodeExpression *endCondIter;
+	struct NodeStatemet *loopBlock;
+};
+
 struct NodeSubroutineCall {
 	char *name;
 	struct ExpressionList *args;
@@ -194,6 +205,8 @@ void printNodeTermo(struct NodeTermo *node);
 void printNodeTerminal(struct NodeTerminal *node);
 
 void printNodeWhile(struct NodeWhile *node);
+
+void printNodeFor(struct NodeFor *node);
 
 void printNodeIf(struct NodeIf *node);
 

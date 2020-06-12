@@ -145,7 +145,9 @@ void printNodeStmt(struct NodeStatemet *node) {
 	} else if(node->if_) {
 		printNodeIf(node->if_);	
 	} else if(node->while_) {
-		printNodeWhile(node->while_);	
+		printNodeWhile(node->while_);
+	} else if(node->for_) {
+		printNodeFor(node->for_);
 	} else if(node->read) {
 		printNodeRead(node->read);
 	} else if(node->subroutineCall) {
@@ -265,6 +267,23 @@ void printNodeWhile(struct NodeWhile *node) {
 	}
 	printf("}\n");
 
+}
+
+void printNodeFor(struct NodeFor *node) {
+	printf("for %s = ", node->varIter->var->name);
+	printNodeExpression(node->varIter->value);
+	if(node->direction == TO)
+		printf("TO ");
+	else
+		printf("DOWNTO ");
+	printNodeExpression(node->endCondIter);
+	printf(" {\n");
+	struct NodeStatemet *stmt = node->loopBlock;
+	while(stmt) {
+		printNodeStmt(stmt);
+		stmt = stmt->next;
+	}
+	printf("}\n");
 }
 
 void printNodeSubroutineCall(struct NodeSubroutineCall *node) {
