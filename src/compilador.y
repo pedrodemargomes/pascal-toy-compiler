@@ -772,7 +772,7 @@ int main(int argc, char **argv) {
 	printNodeRoot(root);
 	printf("\n\n ------------- \n\n");
 
-	// genCodeNodeRoot(root);	
+	genCodeNodeRoot(root);	
 
 
 	return 0;

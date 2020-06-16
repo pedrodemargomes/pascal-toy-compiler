@@ -7,6 +7,7 @@
 extern char *binName;
 int ifElseLabelCount = 0;
 int whileLabelCount = 0;
+int forLabelCount = 0;
 int exprLabelCount = 0;
 
 char *getIfElseLabel() {
@@ -18,6 +19,12 @@ char *getIfElseLabel() {
 char *getWhileLabel() {
 	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
 	sprintf(label, ".while_%d", whileLabelCount++);
+	return label;
+}
+
+char *getForLabel() {
+	char *label = malloc(MAX_IDENT_LEN*sizeof(char));
+	sprintf(label, ".for_%d", forLabelCount++);
 	return label;
 }
 
@@ -394,7 +401,7 @@ void pushGenCodeVariable(struct GenCodeVariable *node, int paramOffset) {
 	}
 	int offset = -16;	
 	while(head && head->level == node->level) {
-		if(strcmp(head->name, node->name) == 0) {
+		if(strcmp(head->name, node->name) == 0 && strcmp(node->name, "") != 0) {
 			printf("ERROR: Variable name (%s) already used\n", node->name);
 			exit(1);
 		}
@@ -625,6 +632,8 @@ void genCodeNodeStmt(struct NodeStatemet *node, int level) {
 		genCodeNodeIf(node->if_, level);
 	else if(node->while_)
 		genCodeNodeWhile(node->while_, level);
+	else if(node->for_)
+		genCodeNodeFor(node->for_, level);
 	else if(node->read)
 		genCodeNodeRead(node->read, level);
 	else if(node->subroutineCall)
@@ -841,6 +850,48 @@ void genCodeNodeWhile(struct NodeWhile *node, int level) {
 	fprintf(f,"%s:\n", whileLabelEnd);
 	free(whileLabelBegin);
 	free(whileLabelEnd);
+}
+
+void genCodeNodeFor(struct NodeFor *node, int level) {
+	char *forLabelBegin = getForLabel();
+	char *forLabelEnd = getForLabel();
+	struct GenCodeVariable *genVar = getVariable(node->varIter->var->name);
+	genCodeAsign(node->varIter->var->name, node->varIter->value, level);
+
+	genCodeNodeExpression(node->endCondIter, level);
+	struct GenCodeVariable *genCodeVarTempFor = malloc(sizeof(struct GenCodeVariable));
+	INIT_GENVAR(genCodeVarTempFor);
+	genCodeVarTempFor->name = ""; // Just a stub
+	genCodeVarTempFor->level = level;
+	pushGenCodeVariable(genCodeVarTempFor, 0);
+	fprintf(f,"\tpush rax\n");  // Just for 16 byte aligment
+	fprintf(f,"\tpush rax\n");
+
+	fprintf(f,"%s:\n", forLabelBegin);
+		
+	fprintf(f,"\tmov rax, [rbp%+d]\n", genCodeVarTempFor->offset);
+	fprintf(f,"\tcmp rax, [rbp%+d]\n", genVar->offset);
+	if(node->direction == TO)
+		fprintf(f,"\tjl %s\n", forLabelEnd);
+	else
+		fprintf(f,"\tjg %s\n", forLabelEnd);
+	
+	struct NodeStatemet *stmt = node->loopBlock;
+	while(stmt) {
+		genCodeNodeStmt(stmt, level);
+		stmt = stmt->next;
+	}
+	if(node->direction == TO)
+		fprintf(f,"\tinc qword [rbp%+d]\n", genVar->offset);
+	else
+		fprintf(f,"\tdec qword [rbp%+d]\n", genVar->offset);
+
+	fprintf(f,"\tjmp %s\n", forLabelBegin);
+	fprintf(f,"%s:\n", forLabelEnd);
+
+	popGenCodeVariable();
+	fprintf(f,"\tpop rax\n");
+	fprintf(f,"\tpop rax\n");
 }
 
 void genCodeNodeRead(struct NodeRead *node, int level) {

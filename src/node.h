@@ -234,6 +234,8 @@ void genCodeNodeIf(struct NodeIf *node, int level);
 
 void genCodeNodeWhile(struct NodeWhile *node, int level);
 
+void genCodeNodeFor(struct NodeFor *node, int level);
+
 void genCodeNodeRead(struct NodeRead *node, int level);
 
 void genCodeNodeSubroutineCall(struct NodeSubroutineCall *node, int level);
