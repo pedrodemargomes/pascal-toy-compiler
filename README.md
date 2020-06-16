@@ -5,7 +5,7 @@
 - [x] Expressions(e.g. 4+a*5-2 >,>=, <=, <>, =)
 - [x] If..Else
 - [x] While
-- [ ] For
+- [x] For
 - [ ] Add error messages
 - [x] Procedure
 - [x] Function
